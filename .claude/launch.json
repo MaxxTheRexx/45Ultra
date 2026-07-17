@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "heartcore-prod",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "export PATH=\"$HOME/.local/node/bin:$PATH\" && npm run start"],
+      "port": 3000
+    },
+    {
+      "name": "heartcore-dev",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "export PATH=\"$HOME/.local/node/bin:$PATH\" && npm run dev"],
+      "port": 3000
+    }
+  ]
+}
