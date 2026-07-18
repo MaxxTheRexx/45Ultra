@@ -3,6 +3,9 @@
 import { useToday } from "@/lib/hooks";
 import { currentWeek, nutritionFocus, planModel } from "@/lib/plan-model";
 import { RECIPES } from "@/lib/plan-content";
+import { INSIGHTS } from "@/lib/content/insights";
+import { VIDEOS } from "@/lib/content/videos";
+import { VideoFacade } from "./VideoFacade";
 import { useApp } from "@/lib/store";
 
 export function WissenTab() {
@@ -10,11 +13,61 @@ export function WissenTab() {
   const { planConfig } = useApp();
   const cw = today && planConfig ? currentWeek(planConfig) : null;
   const weeks = planConfig ? planModel(planConfig).weeks : 0;
+  const philosophy = planConfig?.philosophy;
+
+  // Passende Insights zuerst (an die Trainingsphilosophie gekoppelt).
+  const insights = [...INSIGHTS].sort((a, b) => {
+    const am = philosophy && a.philosophyTags.includes(philosophy) ? 0 : 1;
+    const bm = philosophy && b.philosophyTags.includes(philosophy) ? 0 : 1;
+    return am - bm;
+  });
 
   return (
     <section className="tab">
+      {/* ---------- Insights von Profis ---------- */}
+      <h3 className="section-h3"><span className="accent">{"//"}</span> Insights von Profis</h3>
+      <div className="sub" style={{ marginBottom: 12 }}>
+        Warum dein Plan so aussieht — kompakt erklärt, mit Quellen zum Nachlesen.
+      </div>
+      <div className="grid g2" style={{ marginBottom: 22 }}>
+        {insights.map((ins) => (
+          <details key={ins.id} className="ex" style={{ margin: 0 }}>
+            <summary>
+              <span>{ins.title}
+                {philosophy && ins.philosophyTags.includes(philosophy) &&
+                  <span className="pill" style={{ marginLeft: 8, borderColor: "var(--orange)", color: "var(--orange)" }}>zu deinem Stil</span>}
+              </span>
+            </summary>
+            <div className="ex-body">
+              <p style={{ fontWeight: 600, color: "var(--bone)", marginBottom: 8 }}>{ins.teaser}</p>
+              {ins.body.map((p, i) => <p key={i} style={{ marginBottom: 8 }}>{p}</p>)}
+              <div style={{ marginTop: 10, fontSize: 12 }}>
+                <b>Quellen:</b>{" "}
+                {ins.sources.map((s, i) => (
+                  <span key={i}>
+                    {i > 0 && " · "}
+                    <a href={s.url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--orange)", fontWeight: 600 }}>{s.label} ↗</a>
+                  </span>
+                ))}
+              </div>
+            </div>
+          </details>
+        ))}
+      </div>
+
+      {/* ---------- Übungsvideos ---------- */}
+      <h3 className="section-h3"><span className="accent">{"//"}</span> Übungsvideos</h3>
+      <div className="sub" style={{ marginBottom: 12 }}>
+        Kurze Demos zu den Kraft- und Stabi-Übungen aus deinem Plan.
+      </div>
+      <div className="grid g3" style={{ marginBottom: 22 }}>
+        {VIDEOS.map((v) => <VideoFacade key={v.youtubeId} video={v} />)}
+      </div>
+
+      {/* ---------- Ernährung ---------- */}
+      <h3 className="section-h3"><span className="accent">{"//"}</span> Ernährung</h3>
       <div className="card" style={{ marginBottom: 14 }}>
-        <h3><span className="accent">{"//"}</span> Wochenfokus Ernährung</h3>
+        <h3><span className="accent">{"//"}</span> Wochenfokus</h3>
         <div className="sub" style={{ fontSize: 14, whiteSpace: "pre-line" }}>
           {cw != null && planConfig && (
             <>
@@ -34,9 +87,7 @@ export function WissenTab() {
           · <b style={{ color: "var(--bone)" }}>Long Run über 2 h:</b> 60 bis 80 g Kohlenhydrate pro Stunde essen und trinken üben. Genau das, was du auch beim Ultra isst
         </div>
       </div>
-      <h3 className="section-h3">
-        <span className="accent">{"//"}</span> Schnelle Rezepte
-      </h3>
+      <h3 className="section-h3"><span className="accent">{"//"}</span> Schnelle Rezepte</h3>
       <div className="grid g3">
         {RECIPES.map((r) => (
           <div key={r.t} className="recipe">
