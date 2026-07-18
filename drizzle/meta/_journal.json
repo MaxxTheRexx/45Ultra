@@ -15,6 +15,13 @@
       "when": 1784378680150,
       "tag": "0001_planconfig",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784380974250,
+      "tag": "0002_strava",
+      "breakpoints": true
     }
   ]
 }

@@ -8,6 +8,7 @@ import { planStartMonday } from "@/lib/plan-model";
 import { useApp, type PlanConfigInput } from "@/lib/store";
 import { DEFAULT_SETTINGS, toPlanConfigInput } from "@/lib/types";
 import { PlanConfigForm } from "./PlanConfigForm";
+import { StravaCard } from "./StravaCard";
 import { useToast } from "./Toast";
 
 export function DatenTab() {
@@ -73,7 +74,8 @@ export function DatenTab() {
           </div>
         </div>
       )}
-      <div className="grid g2">
+      <div className="grid g2" style={{ marginBottom: 14 }}>
+        <StravaCard />
         <div className="card">
           <h3><span className="accent">{"//"}</span> Aktivitäten importieren (CSV)</h3>
           <div className="sub" style={{ marginBottom: 10 }}>

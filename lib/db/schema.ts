@@ -116,6 +116,24 @@ export const userSettings = pgTable("user_settings", {
   updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
 });
 
+/* Strava-Verbindung pro Nutzer (BYOK: eigene Strava-API-App).
+   Geheimnisse (Client-Secret, Tokens) sind AES-256-GCM-verschlüsselt. */
+export const stravaConnection = pgTable("strava_connection", {
+  userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
+  clientId: text("client_id").notNull(),          // öffentlich (steht in der authorize-URL)
+  clientSecretEnc: text("client_secret_enc").notNull(),
+  accessTokenEnc: text("access_token_enc"),        // null bis OAuth abgeschlossen
+  refreshTokenEnc: text("refresh_token_enc"),
+  expiresAt: bigint("expires_at", { mode: "number" }).notNull().default(0), // Unix ms
+  athleteId: text("athlete_id"),
+  athleteName: text("athlete_name"),
+  syncedAfter: bigint("synced_after", { mode: "number" }).notNull().default(0), // Cursor, Unix ms
+  lastSyncAt: bigint("last_sync_at", { mode: "number" }).notNull().default(0),
+  status: text("status").notNull().default("pending"), // pending | ok | revoked | error
+  lastError: text("last_error"),
+  createdAt: bigint("created_at", { mode: "number" }).notNull(),
+});
+
 /* Individuelle Renn-/Plankonfiguration pro Nutzer (siehe PlanConfig in types.ts). */
 export const userPlanConfig = pgTable("user_plan_config", {
   userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),

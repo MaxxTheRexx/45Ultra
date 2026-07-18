@@ -4,13 +4,9 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { passkey } from "@better-auth/passkey";
 import { db } from "./db";
 import * as schema from "./db/schema";
+import { baseURL as resolveBaseURL } from "./base-url";
 
-const baseURL =
-  process.env.BETTER_AUTH_URL ||
-  (process.env.VERCEL_PROJECT_PRODUCTION_URL
-    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-    : "http://localhost:3000");
-
+const baseURL = resolveBaseURL();
 const { hostname } = new URL(baseURL);
 
 export const auth = betterAuth({

@@ -165,6 +165,47 @@ erscheinen auf jedem Gerät, auf dem du eingeloggt bist.
 
 ---
 
+## Etappe 6: Automatischer Garmin-Import über Strava freischalten (einmalig)
+
+Damit deine Garmin-Aktivitäten automatisch in der App landen, läuft der Weg über
+Strava (Garmin lädt jede Aktivität automatisch zu Strava hoch). Zwei Dinge musst
+du **einmal als Betreiber** einrichten, den Rest macht jeder Nutzer selbst in der App.
+
+### 6a. Zwei geheime Schlüssel bei Vercel hinterlegen
+
+1. Erzeuge zwei Zufallswerte: öffne zweimal https://generate-secret.vercel.app/32
+   und kopiere dir beide Werte.
+2. Vercel → Projekt **endurance24** → **Settings → Environment Variables** →
+   zwei neue Einträge (Production):
+   - `ENCRYPTION_KEY` = der erste Wert — **verschlüsselt die Strava-Zugangsdaten.
+     Diesen Wert danach NIE mehr ändern** (sonst müssen alle Nutzer Strava neu verbinden).
+   - `CRON_SECRET` = der zweite Wert — schützt den nächtlichen Abgleich.
+3. **Deployments → oberster Eintrag → ⋯ → Redeploy.**
+
+Der tägliche automatische Abgleich (`vercel.json`) läuft danach von selbst einmal
+pro Nacht — im Hobby-Tarif ist genau ein Lauf pro Tag erlaubt.
+
+### 6b. Datenbank-Tabelle in Supabase anlegen
+
+Wie in Etappe 1a: Öffne **`drizzle/0002_strava.sql`**, kopiere den Inhalt, füge
+ihn im Supabase **SQL Editor** ein und klicke **Run**. (Falls du Teil A noch nicht
+eingespielt hast, davor auch **`drizzle/0001_planconfig.sql`** ausführen.)
+
+### 6c. So verbindet sich jeder Nutzer (in der App)
+
+Im **Daten**-Tab → Karte **„Garmin / Strava"** → **Einrichtung starten**. Die App
+führt Schritt für Schritt durch das Anlegen einer eigenen kostenlosen Strava-API-App
+(auf strava.com/settings/api). Wichtig ist dort nur ein Feld:
+**Autorisierungs-Callback-Domain = `endurance24.vercel.app`** (genau so, ohne
+`https://`). Client-ID und Client-Secret in die App einfügen, „Speichern & mit Strava
+verbinden" — fertig. Ab dann kommen neue Läufe automatisch, und „Jetzt abgleichen"
+holt sie sofort.
+
+> Warum jeder eine eigene Strava-App? Strava erlaubt pro API-App nur 10 verbundene
+> Sportler. Mit einer eigenen App pro Nutzer gibt es diese Grenze nicht.
+
+---
+
 ## Alltag & Pannenhilfe
 
 **Etwas am Code ändern lassen und veröffentlichen:** Änderung machen (lassen),
