@@ -1,23 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import { Barlow, Barlow_Condensed, IBM_Plex_Mono } from "next/font/google";
+import { Anton, Barlow } from "next/font/google";
 import { SerwistProvider } from "@serwist/turbopack/react";
 import "./globals.css";
 
+// "Startnummer"-Identität: Anton als Poster-Display, Barlow für alles andere.
 const barlow = Barlow({
   variable: "--font-b",
-  weight: ["400", "500", "600"],
+  weight: ["400", "500", "600", "700"],
   subsets: ["latin"],
 });
 
-const barlowCondensed = Barlow_Condensed({
+const anton = Anton({
   variable: "--font-d",
-  weight: ["500", "600", "700"],
-  subsets: ["latin"],
-});
-
-const plexMono = IBM_Plex_Mono({
-  variable: "--font-m",
-  weight: ["400", "500", "600"],
+  weight: ["400"],
   subsets: ["latin"],
 });
 
@@ -37,7 +32,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#0F1411",
+  themeColor: "#F4F4F0",
 };
 
 export default function RootLayout({
@@ -48,7 +43,7 @@ export default function RootLayout({
   return (
     <html
       lang="de"
-      className={`${barlow.variable} ${barlowCondensed.variable} ${plexMono.variable}`}
+      className={`${barlow.variable} ${anton.variable}`}
     >
       <body>
         <SerwistProvider swUrl="/serwist/sw.js">{children}</SerwistProvider>

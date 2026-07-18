@@ -5,7 +5,7 @@ import { currentWeek, nutritionFocus, planModel } from "@/lib/plan-model";
 import { RECIPES } from "@/lib/plan-content";
 import { useApp } from "@/lib/store";
 
-export function ErnaehrungTab() {
+export function WissenTab() {
   const today = useToday();
   const { planConfig } = useApp();
   const cw = today && planConfig ? currentWeek(planConfig) : null;
