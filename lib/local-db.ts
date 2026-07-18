@@ -1,27 +1,34 @@
 "use client";
 
 import { openDB, type IDBPDatabase } from "idb";
-import type { Activity, Checkin, PlanSession, Settings, SyncChanges } from "./types";
+import type { Activity, Checkin, PlanConfig, PlanSession, Settings, SyncChanges } from "./types";
 
 /**
  * Lokaler Speicher (IndexedDB) — die primäre Datenquelle der App.
  * Der Server ist nur Sync-Ziel; die App funktioniert komplett offline.
  *
  * Stores:
- *  - planSessions / checkins / activities: die Nutzdaten
- *  - meta: settings, lastSync, userId, hasAuthed
+ *  - planSessions / checkins / activities: die Nutzdaten (viele Zeilen)
+ *  - meta: Einzelobjekte (settings, planConfig) + lastSync, userId, hasAuthed
  *  - dirty: Referenzen geänderter Datensätze, die noch zum Server müssen
  */
 
-/** Registry der synchronisierten Entitäten — einzige Stelle, die Kind ↔ Store ↔ Schlüssel verknüpft. */
+/** Registry der Mehrzeilen-Entitäten — Kind ↔ Store ↔ Schlüssel. */
 const ENTITIES = {
   plan: { store: "planSessions", changesKey: "planSessions" },
   checkin: { store: "checkins", changesKey: "checkins" },
   activity: { store: "activities", changesKey: "activities" },
 } as const;
 
+/** Einzelobjekt-Entitäten, die als ein Datensatz im meta-Store liegen. */
+const SINGLETONS = ["settings", "planConfig"] as const;
+
 type EntityKind = keyof typeof ENTITIES;
-type DirtyRef = { store: EntityKind | "settings"; key: string };
+type SingletonKind = (typeof SINGLETONS)[number];
+type DirtyRef = { store: EntityKind | SingletonKind; key: string };
+
+const isSingleton = (s: DirtyRef["store"]): s is SingletonKind =>
+  (SINGLETONS as readonly string[]).includes(s);
 
 const DATA_STORES = ["planSessions", "checkins", "activities"] as const;
 const ALL_STORES = [...DATA_STORES, "meta", "dirty"] as const;
@@ -43,17 +50,18 @@ function getDb() {
 
 export async function loadAll() {
   const db = await getDb();
-  const [plan, checkins, activities, settings, lastSync, userId, hasAuthed] =
+  const [plan, checkins, activities, settings, planConfig, lastSync, userId, hasAuthed] =
     await Promise.all([
       db.getAll("planSessions") as Promise<PlanSession[]>,
       db.getAll("checkins") as Promise<Checkin[]>,
       db.getAll("activities") as Promise<Activity[]>,
       db.get("meta", "settings") as Promise<Settings | undefined>,
+      db.get("meta", "planConfig") as Promise<PlanConfig | undefined>,
       db.get("meta", "lastSync") as Promise<number | undefined>,
       db.get("meta", "userId") as Promise<string | undefined>,
       db.get("meta", "hasAuthed") as Promise<boolean | undefined>,
     ]);
-  return { plan, checkins, activities, settings, lastSync: lastSync ?? 0, userId, hasAuthed: !!hasAuthed };
+  return { plan, checkins, activities, settings, planConfig, lastSync: lastSync ?? 0, userId, hasAuthed: !!hasAuthed };
 }
 
 /** Nur die Anmelde-Metadaten lesen (schneller Startpfad, keine Nutzdaten). */
@@ -97,13 +105,18 @@ export const putCheckins = (items: Checkin[], markDirty: boolean) =>
 export const putActivities = (items: Activity[], markDirty: boolean) =>
   putRecords("activity", items, (a) => a.key, markDirty);
 
-export async function putSettings(settings: Settings, markDirty: boolean) {
+async function putSingleton(kind: SingletonKind, value: unknown, markDirty: boolean) {
   const db = await getDb();
   const tx = db.transaction(["meta", "dirty"], "readwrite");
-  tx.objectStore("meta").put(settings, "settings");
-  if (markDirty) tx.objectStore("dirty").put({ store: "settings", key: "settings" } satisfies DirtyRef, "settings");
+  tx.objectStore("meta").put(value, kind);
+  if (markDirty) tx.objectStore("dirty").put({ store: kind, key: kind } satisfies DirtyRef, kind);
   await tx.done;
 }
+
+export const putSettings = (settings: Settings, markDirty: boolean) =>
+  putSingleton("settings", settings, markDirty);
+export const putPlanConfig = (config: PlanConfig, markDirty: boolean) =>
+  putSingleton("planConfig", config, markDirty);
 
 export async function setMeta(values: Partial<Record<"lastSync" | "userId" | "hasAuthed", unknown>>) {
   const db = await getDb();
@@ -134,8 +147,8 @@ export async function collectDirty(): Promise<{ changes: SyncChanges; sent: Map<
   ]);
   const records = await Promise.all(
     refs.map((ref) =>
-      ref.store === "settings"
-        ? tx.objectStore("meta").get("settings")
+      isSingleton(ref.store)
+        ? tx.objectStore("meta").get(ref.store)
         : tx.objectStore(ENTITIES[ref.store].store).get(ref.key),
     ),
   );
@@ -146,7 +159,8 @@ export async function collectDirty(): Promise<{ changes: SyncChanges; sent: Map<
   refs.forEach((ref, i) => {
     const rec = records[i] as { updatedAt: number } | undefined;
     if (!rec) return;
-    if (ref.store === "settings") changes.settings = rec as Settings;
+    // Singletons haben denselben Namen im SyncChanges-Paket wie ihr Store.
+    if (isSingleton(ref.store)) (changes as unknown as Record<string, unknown>)[ref.store] = rec;
     else (changes[ENTITIES[ref.store].changesKey] as unknown[]).push(rec);
     sent.set(keys[i], { ref, stamp: rec.updatedAt });
   });
@@ -160,8 +174,8 @@ export async function clearDirty(sent: Map<string, SentEntry>) {
   const entries = [...sent.entries()];
   const current = await Promise.all(
     entries.map(([, { ref }]) =>
-      ref.store === "settings"
-        ? tx.objectStore("meta").get("settings")
+      isSingleton(ref.store)
+        ? tx.objectStore("meta").get(ref.store)
         : tx.objectStore(ENTITIES[ref.store].store).get(ref.key),
     ),
   );

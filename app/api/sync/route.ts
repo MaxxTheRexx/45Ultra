@@ -3,9 +3,9 @@ import { and, eq, getTableColumns, gt, sql, type SQL } from "drizzle-orm";
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { activity, checkin, planSession, userSettings } from "@/lib/db/schema";
+import { activity, checkin, planSession, userPlanConfig, userSettings } from "@/lib/db/schema";
 import { DEFAULT_SETTINGS } from "@/lib/types";
-import type { Activity, Checkin, PlanSession, Settings, SyncChanges } from "@/lib/types";
+import type { Activity, Checkin, PlanConfig, PlanSession, Settings, SyncChanges } from "@/lib/types";
 
 /**
  * Ein Roundtrip synchronisiert alles:
@@ -122,10 +122,29 @@ export async function POST(req: NextRequest) {
     }]));
   }
 
+  if (ch.planConfig && num(ch.planConfig.updatedAt) > 0) {
+    const pc = ch.planConfig;
+    pushes.push(upsertIfNewer(userPlanConfig, [userPlanConfig.userId], [{
+      userId,
+      raceName: str(pc.raceName, 120),
+      raceLocation: pc.raceLocation == null ? null : str(pc.raceLocation, 120),
+      raceDate: str(pc.raceDate, 10),
+      distanceKm: num(pc.distanceKm),
+      elevationHm: num(pc.elevationHm),
+      planStart: str(pc.planStart, 10),
+      trainingDays: Math.min(7, Math.max(3, num(pc.trainingDays))),
+      philosophy: str(pc.philosophy, 12),
+      intensity: str(pc.intensity, 12),
+      version: num(pc.version),
+      preset: pc.preset == null ? null : str(pc.preset, 30),
+      updatedAt: num(pc.updatedAt),
+    }]));
+  }
+
   await Promise.all(pushes);
 
   /* ---------- Pull: alles Neue seit `since` zurückgeben ---------- */
-  const [outSessions, outCheckins, outActivities, outSettings] = await Promise.all([
+  const [outSessions, outCheckins, outActivities, outSettings, outConfig] = await Promise.all([
     db.select().from(planSession)
       .where(and(eq(planSession.userId, userId), gt(planSession.updatedAt, since))),
     db.select().from(checkin)
@@ -134,6 +153,8 @@ export async function POST(req: NextRequest) {
       .where(and(eq(activity.userId, userId), gt(activity.updatedAt, since))),
     db.select().from(userSettings)
       .where(and(eq(userSettings.userId, userId), gt(userSettings.updatedAt, since))),
+    db.select().from(userPlanConfig)
+      .where(and(eq(userPlanConfig.userId, userId), gt(userPlanConfig.updatedAt, since))),
   ]);
 
   const changes: SyncChanges = {
@@ -155,6 +176,22 @@ export async function POST(req: NextRequest) {
     })),
     settings: outSettings[0]
       ? ({ goal: outSettings[0].goal, weight: outSettings[0].weight, updatedAt: outSettings[0].updatedAt } satisfies Settings)
+      : undefined,
+    planConfig: outConfig[0]
+      ? ({
+          raceName: outConfig[0].raceName,
+          raceLocation: outConfig[0].raceLocation ?? undefined,
+          raceDate: outConfig[0].raceDate,
+          distanceKm: outConfig[0].distanceKm,
+          elevationHm: outConfig[0].elevationHm,
+          planStart: outConfig[0].planStart,
+          trainingDays: outConfig[0].trainingDays,
+          philosophy: outConfig[0].philosophy as PlanConfig["philosophy"],
+          intensity: outConfig[0].intensity as PlanConfig["intensity"],
+          version: outConfig[0].version,
+          preset: (outConfig[0].preset ?? undefined) as PlanConfig["preset"],
+          updatedAt: outConfig[0].updatedAt,
+        } satisfies PlanConfig)
       : undefined,
   };
 

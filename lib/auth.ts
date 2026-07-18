@@ -28,7 +28,7 @@ export const auth = betterAuth({
   plugins: [
     passkey({
       rpID: hostname,
-      rpName: "HEART CORE 45K",
+      rpName: "Trailhead",
       origin: baseURL,
     }),
     nextCookies(), // muss letztes Plugin sein (setzt Cookies in Server Actions)

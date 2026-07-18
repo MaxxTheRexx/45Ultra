@@ -3,20 +3,26 @@
 import { useRef, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { importCSV } from "@/lib/csv";
-import { todayStr } from "@/lib/dates";
-import { useApp } from "@/lib/store";
-import { DEFAULT_SETTINGS } from "@/lib/types";
+import { fmtD, todayStr } from "@/lib/dates";
+import { planStartMonday } from "@/lib/plan-model";
+import { useApp, type PlanConfigInput } from "@/lib/store";
+import { DEFAULT_SETTINGS, toPlanConfigInput } from "@/lib/types";
+import { PlanConfigForm } from "./PlanConfigForm";
 import { useToast } from "./Toast";
 
 export function DatenTab() {
-  const { activities, plan, checkins, settings, addActivities, saveSettings, resetPlan, importBackup } = useApp();
+  const { activities, plan, checkins, settings, planConfig, addActivities, saveSettings, savePlanConfig, applyPlanConfig, importBackup } = useApp();
   const toast = useToast();
   const [csvStatus, setCsvStatus] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [goal, setGoal] = useState(settings.goal);
   const [weight, setWeight] = useState(String(settings.weight));
+  const [cfg, setCfg] = useState<PlanConfigInput | null>(null);
   const csvInput = useRef<HTMLInputElement>(null);
   const jsonInput = useRef<HTMLInputElement>(null);
+
+  // Bearbeitbare Kopie der Config (erst beim ersten Aufklappen befüllt).
+  const editCfg = cfg ?? (planConfig ? toPlanConfigInput(planConfig) : null);
 
   function handleCSV(text: string) {
     const { added, error } = importCSV(text, activities);
@@ -32,17 +38,41 @@ export function DatenTab() {
       checkins,
       activities,
       settings: { goal: settings.goal, weight: settings.weight },
+      planConfig,
     };
     const blob = new Blob([JSON.stringify(data, null, 1)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "heartcore-backup-" + todayStr() + ".json";
+    a.download = "training-backup-" + todayStr() + ".json";
     a.click();
     URL.revokeObjectURL(a.href);
   }
 
   return (
     <section className="tab">
+      {editCfg && (
+        <div className="card" style={{ marginBottom: 14 }}>
+          <h3><span className="accent">{"//"}</span> Plan &amp; Rennen</h3>
+          <div className="sub" style={{ marginBottom: 12 }}>
+            Ändere Rennen, Datum oder Trainingsstil. &bdquo;Anzeige speichern&ldquo; ändert nur Namen/Ort;
+            &bdquo;Plan neu generieren&ldquo; baut den kompletten Plan aus deinen neuen Angaben.
+          </div>
+          <PlanConfigForm value={editCfg} onChange={(patch) => setCfg({ ...editCfg, ...patch })} />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+            <button className="btn ghost small" onClick={() => {
+              savePlanConfig({ raceName: editCfg.raceName, raceLocation: editCfg.raceLocation });
+              toast("Anzeige gespeichert");
+            }}>Anzeige speichern</button>
+            <button className="btn small" onClick={() => {
+              if (confirm("Plan komplett neu generieren? Erledigt-Haken und Verschiebungen gehen verloren. Check-ins und Aktivitäten bleiben. Vergangene Einheiten werden nicht neu angelegt.")) {
+                const normalized = { ...editCfg, planStart: fmtD(planStartMonday(editCfg)) };
+                applyPlanConfig(normalized);
+                toast("Plan neu generiert");
+              }
+            }}>Speichern &amp; Plan neu generieren</button>
+          </div>
+        </div>
+      )}
       <div className="grid g2">
         <div className="card">
           <h3><span className="accent">{"//"}</span> Aktivitäten importieren (CSV)</h3>
@@ -81,17 +111,6 @@ export function DatenTab() {
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button className="btn ghost small" onClick={exportJSON}>Backup exportieren</button>
             <button className="btn ghost small" onClick={() => jsonInput.current?.click()}>Backup importieren</button>
-            <button
-              className="btn ghost small" style={{ borderColor: "var(--red)", color: "var(--red)" }}
-              onClick={() => {
-                if (confirm("Plan komplett neu generieren? Verschiebungen und Erledigt-Haken gehen verloren. Check-ins und Aktivitäten bleiben.")) {
-                  resetPlan();
-                  toast("Plan neu generiert");
-                }
-              }}
-            >
-              Plan neu generieren
-            </button>
           </div>
           <input
             ref={jsonInput} type="file" accept=".json" style={{ display: "none" }}

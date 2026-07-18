@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "HEART CORE 45K · Trainingszentrale",
-    short_name: "HEART CORE",
+    name: "Trailhead · Trainingszentrale",
+    short_name: "Trailhead",
     description:
-      "Trainingsplan, Check-ins, Prognose und Ernährung für den HEART CORE 45K Trail – auch offline.",
+      "Dein individueller Trail- und Ultra-Trainingsplan: Kalender, Check-ins, Prognose und Ernährung – auch offline.",
     start_url: "/",
     display: "standalone",
     background_color: "#0F1411",

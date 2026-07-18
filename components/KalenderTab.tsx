@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { DOW, addDays, fmtD, fmtDM, weekdayIndex, weekIndexOf, weekMonday } from "@/lib/dates";
 import { useToday } from "@/lib/hooks";
-import { phaseOfWeek } from "@/lib/plan";
+import { phaseOfWeek, planModel } from "@/lib/plan-model";
 import { useApp } from "@/lib/store";
 import { useToast } from "./Toast";
 import { TYPELBL } from "@/lib/types";
 
 export function KalenderTab() {
-  const { plan, toggleDone, moveSession } = useApp();
+  const { plan, toggleDone, moveSession, planConfig } = useApp();
   const toast = useToast();
   const today = useToday();
   // Angezeigte Woche: solange nicht navigiert wurde, die aktuelle.
@@ -18,20 +18,21 @@ export function KalenderTab() {
   const [dragOver, setDragOver] = useState<string | null>(null);
 
   const monday = mondayOverride ?? (today ? weekMonday(new Date()) : null);
-  if (!monday || !today) return null;
-  const w = weekIndexOf(fmtD(monday));
-  const ph = phaseOfWeek(w);
+  if (!monday || !today || !planConfig) return null;
+  const w = weekIndexOf(planConfig.planStart, fmtD(monday));
+  const weeks = planModel(planConfig).weeks;
+  const ph = phaseOfWeek(planConfig, w);
   const end = addDays(monday, 6);
 
   function tryMove(id: string, dateStr: string) {
     const s = plan.find((x) => x.id === id);
-    if (!s) return;
+    if (!s || !planConfig) return;
     const wd = weekdayIndex(new Date(dateStr + "T12:00"));
     if (wd === 0 && !["stretch", "ruhe", "yoga"].includes(s.type)) {
       toast("Montag ist Ruhetag. Nur Stretching/Yoga erlaubt.");
       return;
     }
-    moveSession(id, dateStr, weekIndexOf(dateStr));
+    moveSession(id, dateStr, weekIndexOf(planConfig.planStart, dateStr));
     toast(`"${s.title}" → ${DOW[wd]} verschoben`);
   }
 
@@ -47,8 +48,8 @@ export function KalenderTab() {
           {fmtDM(monday)} – {fmtDM(end)}
         </div>
         <div className="sub">
-          {w >= 1 && w <= 11
-            ? <>Woche <b className="mono" style={{ color: "var(--orange)" }}>{w}/11</b> · {ph?.name ?? ""}</>
+          {w >= 1 && w <= weeks
+            ? <>Woche <b className="mono" style={{ color: "var(--orange)" }}>{w}/{weeks}</b> · {ph?.name ?? ""}</>
             : "außerhalb des Plans"}
         </div>
       </div>

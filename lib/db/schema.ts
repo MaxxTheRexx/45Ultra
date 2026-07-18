@@ -115,3 +115,20 @@ export const userSettings = pgTable("user_settings", {
   weight: real("weight").notNull().default(75),
   updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
 });
+
+/* Individuelle Renn-/Plankonfiguration pro Nutzer (siehe PlanConfig in types.ts). */
+export const userPlanConfig = pgTable("user_plan_config", {
+  userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
+  raceName: text("race_name").notNull(),
+  raceLocation: text("race_location"),
+  raceDate: text("race_date").notNull(),
+  distanceKm: real("distance_km").notNull(),
+  elevationHm: integer("elevation_hm").notNull(),
+  planStart: text("plan_start").notNull(),
+  trainingDays: integer("training_days").notNull().default(5),
+  philosophy: text("philosophy").notNull().default("haeufig"),
+  intensity: text("intensity").notNull().default("locker"),
+  version: integer("version").notNull().default(1),
+  preset: text("preset"),
+  updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
+});

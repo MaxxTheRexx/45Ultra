@@ -1,21 +1,25 @@
 "use client";
 
 import { useToday } from "@/lib/hooks";
-import { currentWeek, nutritionFocus, RECIPES } from "@/lib/plan";
+import { currentWeek, nutritionFocus, planModel } from "@/lib/plan-model";
+import { RECIPES } from "@/lib/plan-content";
+import { useApp } from "@/lib/store";
 
 export function ErnaehrungTab() {
   const today = useToday();
-  const cw = today ? currentWeek() : null;
+  const { planConfig } = useApp();
+  const cw = today && planConfig ? currentWeek(planConfig) : null;
+  const weeks = planConfig ? planModel(planConfig).weeks : 0;
 
   return (
     <section className="tab">
       <div className="card" style={{ marginBottom: 14 }}>
         <h3><span className="accent">{"//"}</span> Wochenfokus Ernährung</h3>
         <div className="sub" style={{ fontSize: 14, whiteSpace: "pre-line" }}>
-          {cw != null && (
+          {cw != null && planConfig && (
             <>
-              <b className="mono" style={{ color: "var(--orange)" }}>WOCHE {cw}/11</b>
-              {"\n"}{nutritionFocus(cw)}
+              <b className="mono" style={{ color: "var(--orange)" }}>WOCHE {cw}/{weeks}</b>
+              {"\n"}{nutritionFocus(planConfig, cw)}
             </>
           )}
         </div>

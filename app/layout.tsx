@@ -22,14 +22,14 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "HEART CORE 45K · Trainingszentrale",
+  title: "Trailhead · Trainingszentrale",
   description:
-    "Trainingszentrale für den HEART CORE 45K Trail in Heidelberg: Plan, Kalender, Check-ins, Prognose und Ernährung – auch offline.",
-  applicationName: "HEART CORE 45K",
+    "Dein individueller Trail- und Ultra-Trainingsplan: Kalender, Check-ins, Zielzeit-Prognose und Ernährung – auch offline.",
+  applicationName: "Trailhead",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "HEART CORE 45K",
+    title: "Trailhead",
   },
 };
 

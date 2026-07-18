@@ -1,5 +1,5 @@
-import { addDays, fmtD, weekMonday } from "./dates";
-import type { Activity, PlanSession, Settings } from "./types";
+import { addDays, clamp, fmtD, weekMonday } from "./dates";
+import type { Activity, PlanConfig, PlanSession, Settings } from "./types";
 
 /* Wochen-Statistik: kombiniert CSV-Aktivitäten + erledigte Plan-Einheiten
    (ohne Doppelzählung: CSV gewinnt bei Läufen). */
@@ -49,19 +49,23 @@ export function last6wRunStats(activities: Activity[]) {
   return { avgKm, avgHm, longest, flatPace, n: recent.length };
 }
 
-/* Prognose-Modell: Flach-Äquivalent (100 hm ≈ 1 km), skaliert mit Trainingszustand. */
-export function predictRace(activities: Activity[]) {
+/* Prognose-Modell: Flach-Äquivalent (100 hm ≈ 1 km), skaliert mit Trainingszustand
+   und den individuellen Renndaten (Distanz/Höhenmeter aus der Config). */
+export function predictRace(activities: Activity[], config: PlanConfig) {
   const st = last6wRunStats(activities);
   if (st.n < 3) return null;
-  const fitKm = Math.min(1, st.avgKm / 50);              // 50 km/Wo = voll
-  const fitHm = Math.min(1, st.avgHm / 1200);            // 1200 hm/Wo = voll
-  const kFactor = 1.15 - 0.25 * fitHm;                   // hm-Kosten: 1,15 → 0,90 km pro 100 hm
-  const eqKm = 45 + 20 * kFactor;                        // Flach-Äquivalent
-  const trailFactor = 1.10 - 0.05 * fitHm;               // Technik/Untergrund: 1,10 → 1,05
-  const paceAdj = 1.06 - 0.08 * fitKm;                   // Umfang macht die Pace haltbarer
-  const endurancePenalty = Math.max(0, 32 - st.longest) * 1.6; // min, wenn längster Lauf < 32 km
+  const fullKm = clamp(config.distanceKm * 1.1, 30, 90);   // Wochen-km für "voll austrainiert"
+  const fullHm = clamp(config.elevationHm * 0.6, 400, 2000);
+  const fitKm = Math.min(1, st.avgKm / fullKm);
+  const fitHm = Math.min(1, st.avgHm / fullHm);
+  const kFactor = 1.15 - 0.25 * fitHm;                     // hm-Kosten: 1,15 → 0,90 km pro 100 hm
+  const eqKm = config.distanceKm + (config.elevationHm / 100) * kFactor; // Flach-Äquivalent
+  const trailFactor = 1.10 - 0.05 * fitHm;                 // Technik/Untergrund
+  const paceAdj = 1.06 - 0.08 * fitKm;                     // Umfang macht die Pace haltbarer
+  const longGoal = Math.min(32, config.distanceKm * 0.7);
+  const endurancePenalty = Math.max(0, longGoal - st.longest) * 1.6;
   const total = eqKm * st.flatPace * trailFactor * paceAdj + endurancePenalty;
-  return { total, eqKm, endurancePenalty, st, trailFactor, paceAdj, kFactor };
+  return { total, eqKm, endurancePenalty, longGoal, st, trailFactor, paceAdj, kFactor };
 }
 
 export function goalMin(settings: Settings) {

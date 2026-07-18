@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
-import { AppProvider, useApp } from "@/lib/store";
+import { AppProvider, useApp, useSync } from "@/lib/store";
 import { ToastProvider } from "@/components/Toast";
+import { Onboarding } from "@/components/Onboarding";
 import { AppHeader } from "@/components/AppHeader";
 import { HeuteTab } from "@/components/HeuteTab";
 import { KalenderTab } from "@/components/KalenderTab";
@@ -27,10 +28,17 @@ const TABS = [
 type TabKey = (typeof TABS)[number]["key"];
 
 function AppShell() {
-  const { ready } = useApp();
+  const { ready, planConfig } = useApp();
+  const { firstSyncSettled } = useSync();
   const [tab, setTab] = useState<TabKey>("heute");
 
   if (!ready) return null;
+  // Noch keine Config: erst nach dem ersten abgeschlossenen Sync-Versuch
+  // entscheiden (er könnte eine Config vom Server ziehen), sonst ins Onboarding.
+  if (!planConfig) {
+    if (!firstSyncSettled) return null;
+    return <Onboarding />;
+  }
 
   return (
     <>
@@ -59,7 +67,7 @@ function AppShell() {
         {tab === "daten" && <DatenTab />}
       </main>
       <div className="footer-note">
-        HEART CORE TRAININGSZENTRALE · offline-fähig · synchronisiert automatisch mit deinem Account
+        TRAININGSZENTRALE · offline-fähig · synchronisiert automatisch mit deinem Account
       </div>
     </>
   );

@@ -1,10 +1,7 @@
-export const RACE_DATE = new Date(2026, 8, 20); // 20.09.2026
-export const PLAN_START = new Date(2026, 6, 6); // Mo 06.07.2026 (Woche 1)
-export const APP_START_DATE = "2026-07-08";
-/** Beginn des Trainingsblocks als Date (gleiche Quelle wie APP_START_DATE). */
-export const BLOCK_START = new Date(APP_START_DATE + "T00:00");
-
 export const DOW = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+
+/** Auf [lo, hi] begrenzen. */
+export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 // Immer LOKALES Datum formatieren — toISOString() (UTC) würde vor 2 Uhr
 // nachts bzw. bei Mitternachts-Dates alles um einen Tag verschieben.
@@ -33,9 +30,11 @@ export function weekMonday(d: Date) {
   return x;
 }
 
-export function weekIndexOf(dateStr: string) {
+/** Planwoche eines Datums relativ zum (individuellen) Planstart. */
+export function weekIndexOf(planStart: string, dateStr: string) {
+  const start = weekMonday(new Date(planStart + "T12:00")).getTime();
   const d = new Date(dateStr + "T12:00");
-  return Math.floor((weekMonday(d).getTime() - PLAN_START.getTime()) / (7 * 864e5)) + 1;
+  return Math.floor((weekMonday(d).getTime() - start) / (7 * 864e5)) + 1;
 }
 
 export const fmtHM = (min: number) => {

@@ -1,34 +1,80 @@
 "use client";
 
-import { BLOCK_START, RACE_DATE } from "@/lib/dates";
+import { useMemo } from "react";
+import { fmtDM } from "@/lib/dates";
 import { useToday } from "@/lib/hooks";
-import { currentWeek, phaseOfWeek } from "@/lib/plan";
-import { useSync } from "@/lib/store";
+import { currentWeek, phaseOfWeek, planStartMonday, planModel } from "@/lib/plan-model";
+import { useApp, useSync } from "@/lib/store";
 import { authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import * as ldb from "@/lib/local-db";
+import type { PlanConfig } from "@/lib/types";
 
-/* Stilisiertes 45k/2000hm-Profil (Königstuhl-Charakter: zwei große Rampen) */
-const PTS = [0, 8, 60, 20, 120, 14, 180, 48, 240, 72, 300, 60, 360, 78, 420, 50, 480, 42, 540, 66, 600, 88, 660, 70, 720, 76, 780, 52, 840, 34, 900, 44, 960, 18, 1000, 10];
-let profilePath = "M0,100 ";
-for (let i = 0; i < PTS.length; i += 2) profilePath += `L${PTS[i]},${100 - PTS[i + 1]} `;
-profilePath += "L1000,100 Z";
+/* Deterministischer Zufall (mulberry32) — gleiche Config → gleiches Profil. */
+function seededProfile(seed: number, steepness: number): string {
+  let s = seed >>> 0;
+  const rand = () => {
+    s |= 0; s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  // Höhen-Amplitude aus der Steilheit (hm/km): flach ~0.3, sehr steil ~0.95
+  const amp = Math.min(0.95, Math.max(0.3, steepness / 45));
+  const n = 17;
+  let h = 0.15;
+  const pts: number[] = [];
+  for (let i = 0; i <= n; i++) {
+    const x = (i / n) * 1000;
+    h = Math.min(0.95, Math.max(0.05, h + (rand() - 0.45) * amp));
+    // sanftes Auslaufen zum Ziel
+    const y = i === 0 ? 0.1 : i === n ? 0.1 : h;
+    pts.push(x, 100 - y * 92);
+  }
+  let path = `M0,100 `;
+  for (let i = 0; i < pts.length; i += 2) path += `L${pts[i].toFixed(0)},${pts[i + 1].toFixed(0)} `;
+  return path + "L1000,100 Z";
+}
+
+const hashStr = (str: string) => {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+};
 
 export function AppHeader() {
   const { syncStatus, syncNow } = useSync();
+  const { planConfig, settings } = useApp();
   const router = useRouter();
-  // Erst nach Mount berechnen (hydration-sicher); Tagesgenauigkeit reicht
-  // für Countdown und Fortschrittsbalken.
+  // Erst nach Mount berechnen (hydration-sicher); Tagesgenauigkeit reicht.
   const today = useToday();
   const now = today ? new Date(today + "T12:00").getTime() : null;
 
-  const days = now ? Math.max(0, Math.ceil((RACE_DATE.getTime() - now) / 864e5)) : null;
-  const doneFrac = now
-    ? Math.min(1, Math.max(0, (now - BLOCK_START.getTime()) / (RACE_DATE.getTime() - BLOCK_START.getTime())))
-    : 0;
+  const config = planConfig;
+  const profilePath = useMemo(() => {
+    if (!config) return "M0,100 L1000,100 Z";
+    return seededProfile(hashStr(config.raceName + config.distanceKm), config.elevationHm / Math.max(1, config.distanceKm));
+  }, [config]);
+
+  if (!config) return null;
+
+  const raceMs = new Date(config.raceDate + "T12:00").getTime();
+  const start = planStartMonday(config);
+  const startMs = start.getTime();
+  const days = now ? Math.max(0, Math.ceil((raceMs - now) / 864e5)) : null;
+  const doneFrac = now ? Math.min(1, Math.max(0, (now - startMs) / Math.max(1, raceMs - startMs))) : 0;
   const cx = doneFrac * 1000;
-  const cw = now ? currentWeek() : 1;
-  const ph = phaseOfWeek(cw);
+  const weeks = planModel(config).weeks;
+  const cw = now ? currentWeek(config) : 1;
+  const ph = phaseOfWeek(config, cw);
+
+  const fmtNum = (n: number) => n.toLocaleString("de-DE");
+  const subFacts = [
+    config.raceLocation?.toUpperCase(),
+    `${fmtNum(config.distanceKm)} KM`,
+    `${fmtNum(config.elevationHm)} HM`,
+    new Date(config.raceDate + "T12:00").toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" }).toUpperCase(),
+  ].filter(Boolean).join(" · ");
 
   const syncLabel =
     syncStatus === "offline" ? "offline · Daten lokal gespeichert"
@@ -48,9 +94,9 @@ export function AppHeader() {
     <header>
       <div className="head-top">
         <div>
-          <div className="race-title">Heart Core <em>45K</em></div>
+          <div className="race-title">{renderTitle(config)}</div>
           <div className="race-sub">
-            HEIDELBERG · 45 KM · 2.000 HM · SO 20.09.2026 · ZIEL <span style={{ color: "var(--orange)" }}>SUB 5:00</span>
+            {subFacts} · ZIEL <span style={{ color: "var(--orange)" }}>{settings.goal} h</span>
           </div>
           <div className="race-sub" style={{ fontSize: 11 }}>
             <button onClick={syncNow} title="Jetzt synchronisieren"
@@ -80,13 +126,21 @@ export function AppHeader() {
           <circle cx={cx} cy="12" r="4" fill="var(--orange)" />
         </svg>
         <div className="profile-legend">
-          <span>TRAININGSBLOCK 08.07.</span>
+          <span>START {fmtDM(start)}</span>
           <span style={{ color: "var(--orange)" }}>
-            {now && ph ? `WOCHE ${cw}/11 · ${ph.name.toUpperCase()}` : ""}
+            {now && ph ? `WOCHE ${cw}/${weeks} · ${ph.name.toUpperCase()}` : ""}
           </span>
-          <span>RACE DAY 20.09.</span>
+          <span>RENNTAG {fmtDM(new Date(config.raceDate + "T12:00"))}</span>
         </div>
       </div>
     </header>
   );
+}
+
+/* Rennname mit hervorgehobenem letzten Wort (z. B. Distanz-Kürzel). */
+function renderTitle(config: PlanConfig) {
+  const parts = config.raceName.trim().split(/\s+/);
+  if (parts.length < 2) return config.raceName;
+  const last = parts.pop();
+  return <>{parts.join(" ")} <em>{last}</em></>;
 }

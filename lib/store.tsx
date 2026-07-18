@@ -3,11 +3,15 @@
 import {
   createContext, useCallback, useContext, useEffect, useMemo, useRef, useState,
 } from "react";
-import { generatePlan } from "./plan";
+import { generatePlanFromConfig } from "./plan-model";
+import { LEGACY_HEARTCORE_CONFIG } from "./plan-legacy";
+import { todayStr } from "./dates";
 import { isOffline } from "./hooks";
-import type { Activity, Checkin, PlanSession, Settings, SyncChanges } from "./types";
+import type { Activity, Checkin, PlanConfig, PlanConfigInput, PlanSession, Settings, SyncChanges } from "./types";
 import { DEFAULT_SETTINGS } from "./types";
 import * as ldb from "./local-db";
+
+export type { PlanConfigInput } from "./types";
 
 export type SyncStatus = "idle" | "syncing" | "offline" | "error" | "unauthorized";
 
@@ -17,22 +21,28 @@ interface AppData {
   checkins: Record<string, Checkin>;
   activities: Activity[];
   settings: Settings;
+  planConfig: PlanConfig | null;
   toggleDone: (id: string) => void;
   moveSession: (id: string, date: string, week: number) => void;
   setCheckin: (date: string, patch: Partial<Omit<Checkin, "date" | "updatedAt">>) => void;
   addActivities: (items: Activity[]) => void;
   saveSettings: (patch: Partial<Omit<Settings, "updatedAt">>) => void;
-  resetPlan: () => void;
+  /** Config speichern OHNE Neu-Generierung (nur Anzeige-Felder wie Rennname). */
+  savePlanConfig: (patch: Partial<PlanConfigInput>) => void;
+  /** Config speichern UND Plan neu generieren (Version hoch, alte Sessions → Tombstones). */
+  applyPlanConfig: (next: PlanConfigInput) => void;
   importBackup: (data: unknown) => boolean;
 }
 
 interface SyncState {
   syncStatus: SyncStatus;
+  /** true, sobald der erste Sync-Versuch abgeschlossen ist (Erfolg ODER terminaler Fehler/offline). */
+  firstSyncSettled: boolean;
   syncNow: () => void;
 }
 
 const DataCtx = createContext<AppData | null>(null);
-const SyncCtx = createContext<SyncState>({ syncStatus: "idle", syncNow: () => {} });
+const SyncCtx = createContext<SyncState>({ syncStatus: "idle", firstSyncSettled: false, syncNow: () => {} });
 
 export function useApp() {
   const v = useContext(DataCtx);
@@ -88,7 +98,9 @@ export function AppProvider({ userId, children }: { userId: string | null; child
   const [checkins, setCheckinsState] = useState<Record<string, Checkin>>({});
   const [activities, setActivitiesState] = useState<Activity[]>([]);
   const [settings, setSettingsState] = useState<Settings>(DEFAULT_SETTINGS);
+  const [planConfig, setPlanConfigState] = useState<PlanConfig | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
+  const [firstSyncSettled, setFirstSyncSettled] = useState(false);
 
   // Refs spiegeln den aktuellen Stand, damit Mutationen und Sync außerhalb
   // von setState-Updatern arbeiten können (Updater müssen frei von
@@ -97,11 +109,13 @@ export function AppProvider({ userId, children }: { userId: string | null; child
   const checkinsRef = useRef(checkins);
   const activitiesRef = useRef(activities);
   const settingsRef = useRef(settings);
+  const configRef = useRef(planConfig);
 
   const setPlanAll = useCallback((v: PlanSession[]) => { planRef.current = v; setPlanAllState(v); }, []);
   const setCheckins = useCallback((v: Record<string, Checkin>) => { checkinsRef.current = v; setCheckinsState(v); }, []);
   const setActivities = useCallback((v: Activity[]) => { activitiesRef.current = v; setActivitiesState(v); }, []);
   const setSettings = useCallback((v: Settings) => { settingsRef.current = v; setSettingsState(v); }, []);
+  const setPlanConfig = useCallback((v: PlanConfig | null) => { configRef.current = v; setPlanConfigState(v); }, []);
 
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const syncing = useRef(false);
@@ -157,14 +171,19 @@ export function AppProvider({ userId, children }: { userId: string | null; child
         await ldb.putSettings(incoming.settings, false);
         setSettings(incoming.settings);
       }
+      if (incoming.planConfig && incoming.planConfig.updatedAt > (configRef.current?.updatedAt ?? 0)) {
+        await ldb.putPlanConfig(incoming.planConfig, false);
+        setPlanConfig(incoming.planConfig);
+      }
       await ldb.setMeta({ lastSync: now, hasAuthed: true });
       setSyncStatus("idle");
     } catch {
       setSyncStatus(isOffline() ? "offline" : "error");
     } finally {
       syncing.current = false;
+      setFirstSyncSettled(true);
     }
-  }, [setActivities, setCheckins, setPlanAll, setSettings]);
+  }, [setActivities, setCheckins, setPlanAll, setSettings, setPlanConfig]);
 
   const requestSync = useCallback(() => {
     if (syncTimer.current) clearTimeout(syncTimer.current);
@@ -181,7 +200,7 @@ export function AppProvider({ userId, children }: { userId: string | null; child
       if (userId && stored.userId && stored.userId !== userId) {
         await ldb.clearAllLocal();
         stored.plan = []; stored.checkins = []; stored.activities = [];
-        stored.settings = undefined; stored.lastSync = 0;
+        stored.settings = undefined; stored.planConfig = undefined; stored.lastSync = 0;
       }
       if (userId) await ldb.setMeta({ userId });
 
@@ -189,33 +208,44 @@ export function AppProvider({ userId, children }: { userId: string | null; child
       let checks = stored.checkins;
       let acts = stored.activities;
       let sett = stored.settings;
+      let config = stored.planConfig ?? null;
+      const now = Date.now();
 
-      if (plan.length === 0) {
+      // Erststart auf diesem Gerät ohne Sessions: alte localStorage-App migrieren.
+      if (plan.length === 0 && !config) {
         const legacy = readLegacy();
         if (legacy) {
           plan = legacy.plan;
           checks = legacy.checkins;
           acts = legacy.activities;
           sett = legacy.settings ?? sett;
-          await ldb.putCheckins(checks, true);
-          await ldb.putActivities(acts, true);
-          if (sett) await ldb.putSettings(sett, true);
-        } else {
-          plan = generatePlan();
+          config = LEGACY_HEARTCORE_CONFIG(now);
+          await Promise.all([
+            ldb.putPlanSessions(plan, true),
+            ldb.putCheckins(checks, true),
+            ldb.putActivities(acts, true),
+            ldb.putPlanConfig(config, true),
+            ...(sett ? [ldb.putSettings(sett, true)] : []),
+          ]);
         }
-        await ldb.putPlanSessions(plan, true);
+        // Sonst: brandneuer Nutzer → plan bleibt leer, config null → Onboarding.
+      } else if (plan.length > 0 && !config) {
+        // Bestandsnutzer (Sessions da, aber noch keine Config) → Legacy synthetisieren.
+        config = LEGACY_HEARTCORE_CONFIG(now);
+        await ldb.putPlanConfig(config, true);
       }
 
       if (cancelled) return;
       setPlanAll(plan);
       setCheckins(Object.fromEntries(checks.map((c) => [c.date, c])));
       setActivities(sortActivities(acts));
-      setSettings(sett ?? { ...DEFAULT_SETTINGS, updatedAt: Date.now() });
+      setSettings(sett ?? { ...DEFAULT_SETTINGS, updatedAt: now });
+      setPlanConfig(config);
       setReady(true);
       void runSync();
     })();
     return () => { cancelled = true; };
-  }, [userId, runSync, setActivities, setCheckins, setPlanAll, setSettings]);
+  }, [userId, runSync, setActivities, setCheckins, setPlanAll, setSettings, setPlanConfig]);
 
   /* ---------- Auto-Sync: online-Event, Sichtbarkeit, Intervall ---------- */
   useEffect(() => {
@@ -280,21 +310,38 @@ export function AppProvider({ userId, children }: { userId: string | null; child
     requestSync();
   }, [requestSync, setSettings]);
 
-  /** Plan neu generieren: alte Einheiten als gelöscht markieren (Tombstones für den Sync). */
-  const resetPlan = useCallback(() => {
+  /** Config kosmetisch ändern (keine Regenerierung des Plans). */
+  const savePlanConfig = useCallback((patch: Partial<PlanConfigInput>) => {
+    const cur = configRef.current;
+    if (!cur) return;
+    const next: PlanConfig = { ...cur, ...patch, updatedAt: Date.now() };
+    setPlanConfig(next);
+    void ldb.putPlanConfig(next, true);
+    requestSync();
+  }, [requestSync, setPlanConfig]);
+
+  /** Config speichern + Plan neu generieren (alte Sessions → Tombstones). */
+  const applyPlanConfig = useCallback((input: PlanConfigInput) => {
     const now = Date.now();
+    const version = (configRef.current?.version ?? 0) + 1;
+    const cfg: PlanConfig = { ...input, preset: undefined, version, updatedAt: now };
     const tombstones = planRef.current
       .filter((s) => !s.deleted)
       .map((s) => ({ ...s, deleted: true, updatedAt: now }));
-    const fresh = generatePlan(now + 1);
+    const fresh = generatePlanFromConfig(cfg, { now: now + 1, fromDate: todayStr() });
+    setPlanConfig(cfg);
     setPlanAll([...tombstones, ...fresh]);
+    void ldb.putPlanConfig(cfg, true);
     void ldb.putPlanSessions([...tombstones, ...fresh], true);
     requestSync();
-  }, [requestSync, setPlanAll]);
+  }, [requestSync, setPlanAll, setPlanConfig]);
 
   const importBackup = useCallback((data: unknown): boolean => {
     try {
-      const d = data as { plan?: PlanSession[]; checkins?: Record<string, Checkin> | Checkin[]; activities?: Activity[]; settings?: Settings };
+      const d = data as {
+        plan?: PlanSession[]; checkins?: Record<string, Checkin> | Checkin[];
+        activities?: Activity[]; settings?: Settings; planConfig?: PlanConfig;
+      };
       const now = Date.now();
       if (Array.isArray(d.plan)) {
         const plan = d.plan.map((s) => ({ ...s, updatedAt: now }));
@@ -323,25 +370,30 @@ export function AppProvider({ userId, children }: { userId: string | null; child
         void ldb.putSettings(s, true);
         setSettings(s);
       }
+      if (d.planConfig) {
+        const cfg = { ...d.planConfig, updatedAt: now };
+        void ldb.putPlanConfig(cfg, true);
+        setPlanConfig(cfg);
+      }
       requestSync();
       return true;
     } catch {
       return false;
     }
-  }, [requestSync, setActivities, setCheckins, setPlanAll, setSettings]);
+  }, [requestSync, setActivities, setCheckins, setPlanAll, setSettings, setPlanConfig]);
 
   const plan = useMemo(() => planAll.filter((s) => !s.deleted), [planAll]);
 
   const dataValue = useMemo<AppData>(() => ({
-    ready, plan, checkins, activities, settings,
+    ready, plan, checkins, activities, settings, planConfig,
     toggleDone, moveSession, setCheckin, addActivities, saveSettings,
-    resetPlan, importBackup,
-  }), [ready, plan, checkins, activities, settings, toggleDone, moveSession,
-    setCheckin, addActivities, saveSettings, resetPlan, importBackup]);
+    savePlanConfig, applyPlanConfig, importBackup,
+  }), [ready, plan, checkins, activities, settings, planConfig, toggleDone, moveSession,
+    setCheckin, addActivities, saveSettings, savePlanConfig, applyPlanConfig, importBackup]);
 
   const syncValue = useMemo<SyncState>(
-    () => ({ syncStatus, syncNow: () => void runSync() }),
-    [syncStatus, runSync],
+    () => ({ syncStatus, firstSyncSettled, syncNow: () => void runSync() }),
+    [syncStatus, firstSyncSettled, runSync],
   );
 
   return (

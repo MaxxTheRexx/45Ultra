@@ -50,7 +50,7 @@ export default function LoginPage() {
   return (
     <div className="auth-wrap">
       <div className="auth-card">
-        <h1>Heart Core <em>45K</em></h1>
+        <h1>Trail<em>head</em></h1>
         <div className="auth-sub">TRAININGSZENTRALE · ANMELDEN</div>
         {error && <div className="auth-error">{error}</div>}
         <form onSubmit={submit}>
@@ -91,7 +91,7 @@ export default function LoginPage() {
         </div>
       </div>
       <div className="footer-note" style={{ paddingTop: 20 }}>
-        HEIDELBERG · 45 KM · 2.000 HM · 20.09.2026
+        Dein Trail-Trainingsplan · offline-fähig
       </div>
     </div>
   );
