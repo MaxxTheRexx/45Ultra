@@ -13,4 +13,6 @@ export const IconDashboard = ({ size }: P) => svg(<><path d="M4 20V10M10 20V4M16
 export const IconPlan = ({ size }: P) => svg(<><path d="M3 20l6-16 6 16M9 4l6 16 6-16" /></>, size);
 export const IconWissen = ({ size }: P) => svg(<><path d="M4 4h11a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4z" /><path d="M20 20V7" /></>, size);
 export const IconDaten = ({ size }: P) => svg(<><ellipse cx="12" cy="5" rx="8" ry="3" /><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" /></>, size);
+export const IconStatistik = IconDashboard;
+export const IconProfil = ({ size }: P) => svg(<><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6" /></>, size);
 export const IconPlay = ({ size = 16 }: P) => svg(<><path d="M6 4l14 8-14 8z" fill="currentColor" stroke="none" /></>, size);

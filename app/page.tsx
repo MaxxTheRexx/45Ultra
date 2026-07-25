@@ -8,22 +8,20 @@ import { ToastProvider } from "@/components/Toast";
 import { Onboarding } from "@/components/Onboarding";
 import { AppHeader } from "@/components/AppHeader";
 import { HeuteTab } from "@/components/HeuteTab";
-import { KalenderTab } from "@/components/KalenderTab";
 import { DashboardTab } from "@/components/DashboardTab";
 import { PlanTab } from "@/components/PlanTab";
 import { WissenTab } from "@/components/WissenTab";
 import { DatenTab } from "@/components/DatenTab";
-import { IconHeute, IconKalender, IconDashboard, IconPlan, IconWissen, IconDaten } from "@/components/icons";
+import { IconHeute, IconPlan, IconStatistik, IconWissen, IconProfil } from "@/components/icons";
 import * as ldb from "@/lib/local-db";
 import { isOffline } from "@/lib/hooks";
 
 const TABS = [
   { key: "heute", label: "Heute", short: "Heute", Icon: IconHeute },
-  { key: "kalender", label: "Kalender", short: "Kalender", Icon: IconKalender },
-  { key: "dashboard", label: "Dashboard", short: "Dash", Icon: IconDashboard },
   { key: "plan", label: "Plan", short: "Plan", Icon: IconPlan },
+  { key: "statistik", label: "Statistik", short: "Statistik", Icon: IconStatistik },
   { key: "wissen", label: "Wissen", short: "Wissen", Icon: IconWissen },
-  { key: "daten", label: "Daten", short: "Daten", Icon: IconDaten },
+  { key: "profil", label: "Profil", short: "Profil", Icon: IconProfil },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -61,11 +59,10 @@ function AppShell() {
       </nav>
       <main>
         {tab === "heute" && <HeuteTab />}
-        {tab === "kalender" && <KalenderTab />}
-        {tab === "dashboard" && <DashboardTab />}
         {tab === "plan" && <PlanTab />}
+        {tab === "statistik" && <DashboardTab />}
         {tab === "wissen" && <WissenTab />}
-        {tab === "daten" && <DatenTab />}
+        {tab === "profil" && <DatenTab />}
       </main>
       <div className="footer-note">
         endurance24 · offline-fähig · synchronisiert automatisch mit deinem Account

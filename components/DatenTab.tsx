@@ -1,12 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { importCSV } from "@/lib/csv";
 import { fmtD, todayStr } from "@/lib/dates";
 import { planStartMonday } from "@/lib/plan-model";
 import { useApp, type PlanConfigInput } from "@/lib/store";
 import { DEFAULT_SETTINGS, toPlanConfigInput } from "@/lib/types";
+import * as ldb from "@/lib/local-db";
 import { PlanConfigForm } from "./PlanConfigForm";
 import { StravaCard } from "./StravaCard";
 import { useToast } from "./Toast";
@@ -14,6 +16,7 @@ import { useToast } from "./Toast";
 export function DatenTab() {
   const { activities, plan, checkins, settings, planConfig, addActivities, saveSettings, savePlanConfig, applyPlanConfig, importBackup } = useApp();
   const toast = useToast();
+  const router = useRouter();
   const [csvStatus, setCsvStatus] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [goal, setGoal] = useState(settings.goal);
@@ -160,6 +163,19 @@ export function DatenTab() {
             }}
           >
             Passkey für dieses Gerät einrichten
+          </button>
+          <hr className="sep" />
+          <h3><span className="accent">{"//"}</span> Konto</h3>
+          <button
+            className="btn ghost small"
+            style={{ borderColor: "var(--red)", color: "var(--red)" }}
+            onClick={async () => {
+              await authClient.signOut();
+              await ldb.clearAllLocal();
+              router.replace("/login");
+            }}
+          >
+            Abmelden
           </button>
         </div>
       </div>
