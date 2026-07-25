@@ -93,6 +93,8 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0}
 .chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:5px 10px;border-radius:100px;background:var(--chip);color:#171A16;border:1px solid var(--chip-line);backdrop-filter:blur(4px)}
 .chip.solid{background:var(--nav-bg);color:#fff;border-color:transparent}
 .chip.done{background:var(--acid);color:#171A16;border-color:transparent}
+.photo-card .pc-note{font-size:13px;opacity:.95;margin:0}
+.photo-card.mb16{margin-bottom:16px}
 .pc-fav{position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;background:var(--chip);border:1px solid var(--chip-line);display:flex;align-items:center;justify-content:center;color:#171A16}
 
 /* Filter-Pills */

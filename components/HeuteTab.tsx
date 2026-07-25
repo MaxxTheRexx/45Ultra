@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { addDays, fmtD, fmtDM, fmtHM, weekdayIndex, weekIndexOf } from "@/lib/dates";
+import { useMemo, useState } from "react";
+import { addDays, fmtD, fmtDM, fmtHM, weekIndexOf } from "@/lib/dates";
 import { useToday } from "@/lib/hooks";
 import { currentWeek, phaseOfWeek, planModel } from "@/lib/plan-model";
 import { scienceFor } from "@/lib/content/training-science";
 import { dayNutrition, type CarbFocus } from "@/lib/nutrition-day";
-import { HERO_IMG, SESSION_IMG } from "@/lib/img";
+import { SESSION_IMG } from "@/lib/img";
 import { useApp } from "@/lib/store";
-import { TYPELBL, type Activity, type Checkin, type PlanSession } from "@/lib/types";
+import { TYPELBL, type Activity, type Checkin, type PlanSession, type SessionType } from "@/lib/types";
 import { TrainingDetail } from "./TrainingDetail";
 import { useToast } from "./Toast";
 
@@ -31,10 +31,24 @@ function FeelRow<T extends string | number>({ opts, value, onSelect, knee }: {
     <div className="feel-row">
       {opts.map((o) => (
         <button key={String(o.v)}
-          className={`feel-btn${knee ? " knee-btn" : ""}${knee ? ` k-${o.v}` : ""}${value === o.v ? " sel" : ""}`}
+          className={`feel-btn${knee ? ` knee-btn k-${o.v}` : ""}${value === o.v ? " sel" : ""}`}
           onClick={() => onSelect(o.v)}>{o.l}</button>
       ))}
     </div>
+  );
+}
+
+/** Foto-Karte mit Overlay; mit onClick wird sie zum Button. */
+function PhotoCard({ type, children, onClick, spaced }: {
+  type: SessionType; children: React.ReactNode; onClick?: () => void; spaced?: boolean;
+}) {
+  const Tag = onClick ? "button" : "div";
+  return (
+    <Tag className={`photo-card s-${type}${spaced ? " mb16" : ""}`} onClick={onClick}>
+      <img src={SESSION_IMG[type]} alt="" loading="lazy" />
+      <div className="pc-overlay" />
+      <div className="pc-body">{children}</div>
+    </Tag>
   );
 }
 
@@ -44,6 +58,12 @@ const FOCUS_STYLE: Record<CarbFocus, { bg: string; fg: string }> = {
   high: { bg: "var(--orange)", fg: "#fff" },
 };
 
+type Recap = {
+  date: string; type: PlanSession["type"]; title: string;
+  km?: number; hm?: number; min?: number; benefit: string;
+  week: number; phaseName?: string;
+};
+
 export function HeuteTab() {
   const { plan, checkins, activities, planConfig, setCheckin } = useApp();
   const toast = useToast();
@@ -51,42 +71,46 @@ export function HeuteTab() {
   const [noteDraft, setNoteDraft] = useState<string | null>(null);
   const [detail, setDetail] = useState<PlanSession | null>(null);
 
-  if (!today || !planConfig) return null;
-  const config = planConfig;
+  // Tippen im Notizfeld darf den ganzen Plan nicht neu durchsuchen.
+  const derived = useMemo(() => {
+    if (!today || !planConfig) return null;
+    const config = planConfig;
+    const todaySes = plan.filter((s) => s.date === today);
+    const tomorrow = fmtD(addDays(new Date(today + "T12:00"), 1));
+    const tomorrowSes = plan.filter((s) => s.date === tomorrow);
+
+    // Recap: jüngste erledigte Einheit oder jüngste importierte Aktivität.
+    const lastDone = plan.filter((s) => s.done && s.date <= today).sort((a, b) => (a.date < b.date ? 1 : -1))[0];
+    const lastAct: Activity | undefined = activities[0]; // Store sortiert absteigend
+    const base = lastAct && (!lastDone || lastAct.date >= lastDone.date)
+      ? { date: lastAct.date, type: lastAct.type, title: lastAct.title || TYPELBL[lastAct.type],
+          km: lastAct.km, hm: lastAct.hm, min: lastAct.min }
+      : lastDone
+        ? { date: lastDone.date, type: lastDone.type, title: lastDone.title,
+            km: lastDone.km, hm: lastDone.hm, min: lastDone.dur }
+        : null;
+    const recap: Recap | null = base && (() => {
+      const week = weekIndexOf(config.planStart, base.date);
+      return { ...base, week, phaseName: phaseOfWeek(config, week)?.name,
+        benefit: scienceFor(base).benefit };
+    })();
+
+    // Carboloading gehört auf den Tag vor dem Rennen — egal welcher Wochentag.
+    const dayBeforeRace = fmtD(addDays(new Date(config.raceDate + "T12:00"), -1));
+    const cw = currentWeek(config);
+    const nutri = dayNutrition(todaySes, tomorrowSes, phaseOfWeek(config, cw)?.kind, today === dayBeforeRace);
+
+    return { todaySes, recap, nutri, weeks: planModel(config).weeks };
+  }, [plan, activities, planConfig, today]);
+
+  if (!today || !derived) return null;
+  const { todaySes, recap, nutri, weeks } = derived;
   const c = checkins[today];
   const note = noteDraft ?? c?.note ?? "";
-  const cw = currentWeek(config);
-  const weeks = planModel(config).weeks;
-  const todaySes = plan.filter((s) => s.date === today);
-  const tomorrowSes = plan.filter((s) => s.date === fmtD(addDays(new Date(today + "T12:00"), 1)));
-
-  // ---- Recap: jüngste erledigte Einheit oder jüngste Aktivität ----
-  const lastDone = [...plan].filter((s) => s.done && s.date <= today).sort((a, b) => (a.date < b.date ? 1 : -1))[0];
-  const lastAct = activities[0]; // Store sortiert absteigend
-  type Recap = { date: string; type: PlanSession["type"]; title: string; km?: number; hm?: number; min?: number; benefit: string };
-  let recap: Recap | null = null;
-  const useAct = lastAct && (!lastDone || lastAct.date >= lastDone.date);
-  if (useAct && lastAct) {
-    const a: Activity = lastAct;
-    recap = { date: a.date, type: a.type, title: a.title || TYPELBL[a.type], km: a.km, hm: a.hm, min: a.min,
-      benefit: scienceFor({ type: a.type, title: a.title || "" }).benefit };
-  } else if (lastDone) {
-    recap = { date: lastDone.date, type: lastDone.type, title: lastDone.title, km: lastDone.km, hm: lastDone.hm, min: lastDone.dur,
-      benefit: scienceFor(lastDone).benefit };
-  }
-  const recapWeek = recap ? weekIndexOf(config.planStart, recap.date) : 0;
-  const recapPhase = recap ? phaseOfWeek(config, recapWeek) : undefined;
-
-  // ---- Ernährungscoach ----
-  const phaseKind = phaseOfWeek(config, cw)?.kind;
-  const isRaceWeekSaturday = cw === weeks && weekdayIndex(new Date(today + "T12:00")) === 5;
-  const nutri = dayNutrition(todaySes, tomorrowSes, phaseKind, isRaceWeekSaturday);
   const fs = FOCUS_STYLE[nutri.focus];
 
-  // ---- Check-out-Freischaltung ----
-  const anyDoneToday = todaySes.some((s) => s.done);
-  const hour = new Date().getHours();
-  const checkoutOpen = anyDoneToday || hour >= 17;
+  // Check-out erst nach dem Training bzw. am Abend.
+  const checkoutOpen = todaySes.some((s) => s.done) || new Date().getHours() >= 17;
 
   return (
     <section className="tab">
@@ -94,22 +118,18 @@ export function HeuteTab() {
       {recap && (
         <>
           <h3 className="section-h3"><span className="accent">{"//"}</span> Zuletzt absolviert</h3>
-          <div className={`photo-card s-${recap.type}`} style={{ minHeight: 150, marginBottom: 16 }}>
-            <img src={SESSION_IMG[recap.type] ?? HERO_IMG.recap} alt="" />
-            <div className="pc-overlay" />
-            <div className="pc-body" style={{ minHeight: 150 }}>
-              <div className="pc-kicker">{fmtDM(new Date(recap.date + "T12:00"))} · {TYPELBL[recap.type]}</div>
-              <div className="pc-title">{recap.title}</div>
-              <div className="chip-row" style={{ marginBottom: 8 }}>
-                {recap.km ? <span className="chip">{recap.km.toFixed?.(1) ?? recap.km} km</span> : null}
-                {recap.hm ? <span className="chip">{recap.hm} hm</span> : null}
-                {recap.min ? <span className="chip">{fmtHM(recap.min)} h</span> : null}
-              </div>
-              <div style={{ fontSize: 13, opacity: .95 }}>
-                Woche {recapWeek} von {weeks}{recapPhase ? ` · ${recapPhase.name}` : ""}. {recap.benefit}
-              </div>
+          <PhotoCard type={recap.type} spaced>
+            <div className="pc-kicker">{fmtDM(new Date(recap.date + "T12:00"))} · {TYPELBL[recap.type]}</div>
+            <div className="pc-title">{recap.title}</div>
+            <div className="chip-row" style={{ marginBottom: 8 }}>
+              {recap.km ? <span className="chip">{recap.km.toFixed(1)} km</span> : null}
+              {recap.hm ? <span className="chip">{recap.hm} hm</span> : null}
+              {recap.min ? <span className="chip">{fmtHM(recap.min)} h</span> : null}
             </div>
-          </div>
+            <p className="pc-note">
+              Woche {recap.week} von {weeks}{recap.phaseName ? ` · ${recap.phaseName}` : ""}. {recap.benefit}
+            </p>
+          </PhotoCard>
         </>
       )}
 
@@ -118,31 +138,23 @@ export function HeuteTab() {
       {todaySes.length ? (
         <div className="grid g2" style={{ marginBottom: 16 }}>
           {todaySes.map((s) => (
-            <button key={s.id} className={`photo-card s-${s.type}`} style={{ minHeight: 150 }} onClick={() => setDetail(s)}>
-              <img src={SESSION_IMG[s.type]} alt="" />
-              <div className="pc-overlay" />
-              <div className="pc-body" style={{ minHeight: 150 }}>
-                <div className="pc-kicker">{TYPELBL[s.type]}{s.type !== "ruhe" && s.type !== "stretch" ? " · abends" : ""}</div>
-                <div className="pc-title">{s.title} {s.done ? "✓" : ""}</div>
-                <div className="chip-row">
-                  <span className="chip">{s.dur} min</span>
-                  {s.km ? <span className="chip">{s.km} km</span> : null}
-                  {s.hm ? <span className="chip">{s.hm} hm</span> : null}
-                  {s.done ? <span className="chip done">erledigt</span> : null}
-                </div>
+            <PhotoCard key={s.id} type={s.type} onClick={() => setDetail(s)}>
+              <div className="pc-kicker">{TYPELBL[s.type]}{s.type !== "ruhe" && s.type !== "stretch" ? " · abends" : ""}</div>
+              <div className="pc-title">{s.title} {s.done ? "✓" : ""}</div>
+              <div className="chip-row">
+                <span className="chip">{s.dur} min</span>
+                {s.km ? <span className="chip">{s.km} km</span> : null}
+                {s.hm ? <span className="chip">{s.hm} hm</span> : null}
+                {s.done ? <span className="chip done">erledigt</span> : null}
               </div>
-            </button>
+            </PhotoCard>
           ))}
         </div>
       ) : (
-        <div className="photo-card s-ruhe" style={{ minHeight: 130, marginBottom: 16 }}>
-          <img src={SESSION_IMG.ruhe} alt="" />
-          <div className="pc-overlay" />
-          <div className="pc-body" style={{ minHeight: 130 }}>
-            <div className="pc-title">Freier Tag</div>
-            <div style={{ fontSize: 13, opacity: .95 }}>Kein Training geplant — Erholung ist Teil des Plans.</div>
-          </div>
-        </div>
+        <PhotoCard type="ruhe" spaced>
+          <div className="pc-title">Freier Tag</div>
+          <p className="pc-note">Kein Training geplant — Erholung ist Teil des Plans.</p>
+        </PhotoCard>
       )}
       <Advice c={c} />
 

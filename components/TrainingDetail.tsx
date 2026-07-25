@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { planModel } from "@/lib/plan-model";
-import { placementFor, scienceFor } from "@/lib/content/training-science";
+import { scienceFor } from "@/lib/content/training-science";
 import { SESSION_IMG } from "@/lib/img";
 import { useApp } from "@/lib/store";
 import { TYPELBL, type PlanSession } from "@/lib/types";
@@ -70,7 +70,7 @@ export function TrainingDetail({
           <p className="sheet-lead">{sci.benefit}</p>
 
           <h4>Dein Platz im Plan</h4>
-          <p>{placementFor(sci, phase?.kind)}{phase?.desc ? `\n\n${phase.desc}` : ""}</p>
+          <p>{sci.placement}{phase?.desc ? `\n\n${phase.desc}` : ""}</p>
 
           <h4>Quellen</h4>
           <p style={{ fontSize: 12.5 }}>

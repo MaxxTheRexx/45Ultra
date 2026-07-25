@@ -1,4 +1,5 @@
 import type { PhaseKind } from "./plan-model";
+import { isLongRun, isQualityRun } from "./session-kind";
 import type { PlanSession } from "./types";
 
 /**
@@ -18,8 +19,7 @@ type Load = "hart" | "moderat" | "frei";
 
 function classify(sessions: PlanSession[]): Load {
   if (sessions.some((s) => s.type === "event")) return "hart";
-  if (sessions.some((s) => s.type === "trail" && s.dur >= 90)) return "hart";
-  if (sessions.some((s) => s.type === "lauf" && /hügel|huegel|berg|intervall|tempo/i.test(s.title))) return "hart";
+  if (sessions.some((s) => isLongRun(s) || isQualityRun(s))) return "hart";
   if (sessions.some((s) => ["lauf", "trail", "kraft", "rad", "schwimmen"].includes(s.type))) return "moderat";
   return "frei";
 }
@@ -28,13 +28,13 @@ export function dayNutrition(
   todaySessions: PlanSession[],
   tomorrowSessions: PlanSession[],
   phase: PhaseKind | undefined,
-  isRaceWeekSaturday: boolean,
+  isDayBeforeRace: boolean,
 ): DayNutrition {
   const today = classify(todaySessions);
   const tomorrow = classify(tomorrowSessions);
   const hasKraft = todaySessions.some((s) => s.type === "kraft");
   const isEvent = todaySessions.some((s) => s.type === "event");
-  const longRun = todaySessions.find((s) => s.type === "trail" && s.dur >= 90);
+  const longRun = todaySessions.find(isLongRun);
 
   if (isEvent) {
     return {
@@ -43,7 +43,7 @@ export function dayNutrition(
       timing: ["Gewohntes Frühstück ~3 h vor dem Start", "Ab km 5: 60–80 g KH pro Stunde", "Elektrolyte nicht vergessen"],
     };
   }
-  if (isRaceWeekSaturday) {
+  if (isDayBeforeRace) {
     return {
       focus: "high", label: "High-Carb · Carboloading",
       why: "Tag vor dem Rennen: Speicher auffüllen (8–10 g KH/kg).",

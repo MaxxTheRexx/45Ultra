@@ -1,4 +1,5 @@
 import { addDays, fmtD, weekIndexOf, weekMonday } from "./dates";
+import { isKeySession } from "./session-kind";
 import type { PlanConfig, PlanSession } from "./types";
 
 /**
@@ -12,9 +13,8 @@ import type { PlanConfig, PlanSession } from "./types";
 
 export interface AdaptMove { id: string; date: string; week: number }
 
-const isKeySession = (s: PlanSession) =>
-  !s.done && !s.deleted &&
-  (s.type === "trail" || (s.type === "lauf" && /hügel|huegel|berg/i.test(s.title)));
+/** Offene Schlüssel-Einheit — erledigte und gelöschte scheiden aus. */
+const isOpenKey = (s: PlanSession) => !s.done && !s.deleted && isKeySession(s);
 
 /** Schlüssel-Einheiten der aktuellen Woche, die vor heute lagen → auf freie Tage schieben. */
 export function rebalance(plan: PlanSession[], config: PlanConfig, today: string): AdaptMove[] {
@@ -22,7 +22,7 @@ export function rebalance(plan: PlanSession[], config: PlanConfig, today: string
   const active = plan.filter((s) => !s.deleted);
 
   const missedKey = active
-    .filter((s) => isKeySession(s) && s.date < today && s.week === wToday)
+    .filter((s) => isOpenKey(s) && s.date < today && s.week === wToday)
     .sort((a, b) => (a.date < b.date ? -1 : 1));
   if (!missedKey.length) return [];
 
@@ -59,7 +59,7 @@ export function missedSessions(plan: PlanSession[], config: PlanConfig, today: s
   // Schlüssel-Einheiten, für die rebalance keinen Slot mehr findet, gelten als „verfallen".
   const moved = new Set(rebalance(plan, config, today).map((m) => m.id));
   for (const s of overdue) {
-    if (isKeySession(s) && s.week === wToday) {
+    if (isOpenKey(s) && s.week === wToday) {
       if (!moved.has(s.id)) lapsedKey.add(s.id);
     } else {
       expired.add(s.id);

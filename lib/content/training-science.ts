@@ -1,4 +1,5 @@
 import type { PhaseKind } from "@/lib/plan-model";
+import { isLongRunTitle, isQualityTitle } from "@/lib/session-kind";
 import type { PlanSession, SessionType } from "@/lib/types";
 
 /**
@@ -8,7 +9,7 @@ import type { PlanSession, SessionType } from "@/lib/types";
 export interface TrainingScience {
   why: string[];   // wissenschaftlicher Hintergrund, 1–2 Absätze
   benefit: string; // "Was bringt es" — ein Satz
-  placement: Partial<Record<PhaseKind | "any", string>>; // Baustein-Satz je Phase
+  placement: string; // Baustein-Satz: wo die Einheit im Plan steht
   sources: { label: string; url: string }[];
 }
 
@@ -41,7 +42,7 @@ const CATALOG: Record<string, TrainingScience> = {
       "Die Downhill-Abschnitte belasten die Oberschenkel exzentrisch — dosiert wiederholt baut das einen Schutz gegen den typischen Trail-Muskelkater auf. Gleichzeitig übst du hier deine Renn-Verpflegung (60–80 g KH/h).",
     ],
     benefit: "Er macht dich lange haltbar — körperlich und im Kopf.",
-    placement: { any: PLACEMENT.build },
+    placement: PLACEMENT.build,
     sources: [SRC.sanMillan, SRC.hyldahl, SRC.jeukendrup],
   },
   huegel: {
@@ -50,7 +51,7 @@ const CATALOG: Record<string, TrainingScience> = {
       "In einem polarisierten Ansatz sind das die wenigen, klar harten Reize (etwa 20 % des Trainings), während der Rest bewusst locker bleibt.",
     ],
     benefit: "Mehr Spitzenleistung am Berg — genau da, wo Trailrennen entschieden werden.",
-    placement: { any: PLACEMENT.build },
+    placement: PLACEMENT.build,
     sources: [SRC.midgley, SRC.seiler],
   },
   dauerlauf: {
@@ -59,7 +60,7 @@ const CATALOG: Record<string, TrainingScience> = {
       "Der häufigste Fehler ist, „locker“ zu schnell zu laufen. Diszipliniert langsam zu bleiben ist hier der eigentliche Trainingsreiz.",
     ],
     benefit: "Der günstige Dauerreiz, der deine Ausdauer Woche für Woche wachsen lässt.",
-    placement: { any: PLACEMENT.base },
+    placement: PLACEMENT.base,
     sources: [SRC.sanMillan, SRC.seiler],
   },
   recovery: {
@@ -67,7 +68,7 @@ const CATALOG: Record<string, TrainingScience> = {
       "Der Recovery-Lauf ist bewusst kurz und sehr locker. Er fördert die Durchblutung und den Abtransport von Stoffwechselprodukten, ohne neue Ermüdung aufzubauen — aktive Erholung statt Zusatzbelastung.",
     ],
     benefit: "Er beschleunigt deine Erholung, statt sie zu bremsen.",
-    placement: { any: "Verbindungsstück zwischen harten Einheiten — hält die Beine locker." },
+    placement: "Verbindungsstück zwischen harten Einheiten — hält die Beine locker.",
     sources: [SRC.seiler],
   },
   taperlauf: {
@@ -76,7 +77,7 @@ const CATALOG: Record<string, TrainingScience> = {
       "Kurze Renntempo-Abschnitte halten das Nervensystem wach, ohne müde zu machen.",
     ],
     benefit: "Frische Beine am Renntag — ohne die Form zu verlieren.",
-    placement: { any: PLACEMENT.taper },
+    placement: PLACEMENT.taper,
     sources: [SRC.bosquet],
   },
   kraft: {
@@ -85,7 +86,7 @@ const CATALOG: Record<string, TrainingScience> = {
       "Über die Verletzungsprävention hinaus verbessert Maximalkraft nachweislich die Laufökonomie: Du brauchst pro Schritt weniger Energie.",
     ],
     benefit: "Weniger Verletzungen und ein ökonomischerer Laufstil.",
-    placement: { any: "Ganzjähriger Schutz-Baustein — 1–2× pro Woche, auch wenn es mal wenig Zeit gibt." },
+    placement: "Ganzjähriger Schutz-Baustein — 1–2× pro Woche, auch wenn es mal wenig Zeit gibt.",
     sources: [SRC.bohm, SRC.lauersen, SRC.beattie],
   },
   rad: {
@@ -93,7 +94,7 @@ const CATALOG: Record<string, TrainingScience> = {
       "Radfahren bringt aerobe Grundlage ohne Aufprallbelastung — ideal, um Umfang zu ergänzen, wenn die Beine vom Laufen schwer sind. Hohe Trittfrequenz, kleiner Gang schont die Kniekehle.",
     ],
     benefit: "Zusätzliche Ausdauer bei null Stoßbelastung für die Gelenke.",
-    placement: { any: "Gelenkschonende Ergänzung zum Laufumfang." },
+    placement: "Gelenkschonende Ergänzung zum Laufumfang.",
     sources: [SRC.sanMillan, SRC.tanaka],
   },
   schwimmen: {
@@ -101,7 +102,7 @@ const CATALOG: Record<string, TrainingScience> = {
       "Schwimmen ist regeneratives Cross-Training: Herz-Kreislauf-Reiz bei völliger Entlastung von Knie und Sprunggelenk. Gut für aktive Erholung und an Tagen mit müden Beinen.",
     ],
     benefit: "Ausdauer und Erholung zugleich — komplett gelenkfrei.",
-    placement: { any: "Regenerativer Baustein, besonders nach harten Blöcken." },
+    placement: "Regenerativer Baustein, besonders nach harten Blöcken.",
     sources: [SRC.tanaka],
   },
   yoga: {
@@ -110,7 +111,7 @@ const CATALOG: Record<string, TrainingScience> = {
       "Ruhige Abend-Sessions (Yin) helfen zusätzlich beim Einschlafen nach spätem Training.",
     ],
     benefit: "Beweglichkeit, Stabilität und ein ruhigeres Nervensystem.",
-    placement: { any: "Mobilitäts- und Regenerations-Baustein." },
+    placement: "Mobilitäts- und Regenerations-Baustein.",
     sources: [SRC.behm, SRC.bohm],
   },
   stretch: {
@@ -118,7 +119,7 @@ const CATALOG: Record<string, TrainingScience> = {
       "Gezielte Mobility hält den Bewegungsradius von Hüfte, Waden und Sprunggelenk erhalten — wichtig für Technik am Trail. Statisches Dehnen direkt vor harten Einheiten kann die Leistung kurzfristig senken; als eigene Einheit oder danach ist es sinnvoll.",
     ],
     benefit: "Geschmeidige Gelenke und weniger muskuläre Verspannung.",
-    placement: { any: "Tägliche kleine Pflege — hält dich beweglich." },
+    placement: "Tägliche kleine Pflege — hält dich beweglich.",
     sources: [SRC.behm],
   },
   ruhe: {
@@ -126,7 +127,7 @@ const CATALOG: Record<string, TrainingScience> = {
       "Anpassung passiert nicht im Training, sondern in der Erholung. Am Ruhetag reparieren sich Muskeln und Sehnen und werden stärker. Schlaf ist dabei der stärkste Hebel für Regeneration und Immunfunktion.",
     ],
     benefit: "Hier wirst du tatsächlich stärker — Ruhe ist Teil des Plans, kein Ausfall.",
-    placement: { any: "Fester Baustein: ohne Erholung keine Anpassung." },
+    placement: "Fester Baustein: ohne Erholung keine Anpassung.",
     sources: [SRC.fullagar, SRC.bosquet],
   },
   event: {
@@ -134,37 +135,31 @@ const CATALOG: Record<string, TrainingScience> = {
       "Der Wettkampf ist der Zielreiz, auf den alles hinarbeitet. Pacing (erste Hälfte bewusst zurückhalten) und Verpflegung (60–80 g KH/h, früh beginnen) entscheiden über die zweite Rennhälfte.",
     ],
     benefit: "Der Tag der Ernte — hier zahlt sich der ganze Block aus.",
-    placement: { any: "Das Ziel des gesamten Plans." },
+    placement: "Das Ziel des gesamten Plans.",
     sources: [SRC.jeukendrup, SRC.hyldahl],
   },
 };
 
-/** Wählt den passenden Wissenschafts-Eintrag: erst Titel-Regex, dann Typ. */
+const BY_TYPE: Record<SessionType, TrainingScience> = {
+  trail: CATALOG.longrun,
+  lauf: CATALOG.dauerlauf,
+  kraft: CATALOG.kraft,
+  rad: CATALOG.rad,
+  schwimmen: CATALOG.schwimmen,
+  yoga: CATALOG.yoga,
+  stretch: CATALOG.stretch,
+  ruhe: CATALOG.ruhe,
+  event: CATALOG.event,
+  sonst: CATALOG.dauerlauf,
+};
+
+/** Wählt den passenden Wissenschafts-Eintrag: erst Titel, dann Typ. */
 export function scienceFor(s: Pick<PlanSession, "type" | "title">): TrainingScience {
   const t = s.title.toLowerCase();
-  if (/long run|langer|edersee|generalprobe/.test(t)) return CATALOG.longrun;
-  if (/hügel|huegel|berg-|berg­|intervall|wiederholung/.test(t)) return CATALOG.huegel;
+  if (isLongRunTitle(t)) return CATALOG.longrun;
   if (/recovery|regenerativ/.test(t)) return CATALOG.recovery;
   if (/taper|anschwitzen|renntempo/.test(t)) return CATALOG.taperlauf;
+  if (isQualityTitle(t)) return CATALOG.huegel;
   if (/carbo|ruhe \+/.test(t)) return CATALOG.ruhe;
-
-  const byType: Partial<Record<SessionType, TrainingScience>> = {
-    trail: CATALOG.longrun,
-    lauf: CATALOG.dauerlauf,
-    kraft: CATALOG.kraft,
-    rad: CATALOG.rad,
-    schwimmen: CATALOG.schwimmen,
-    yoga: CATALOG.yoga,
-    stretch: CATALOG.stretch,
-    ruhe: CATALOG.ruhe,
-    event: CATALOG.event,
-    sonst: CATALOG.dauerlauf,
-  };
-  return byType[s.type] ?? CATALOG.dauerlauf;
-}
-
-/** Baustein-Satz passend zur Phase. */
-export function placementFor(sci: TrainingScience, phase: PhaseKind | undefined): string {
-  if (sci.placement.any) return sci.placement.any;
-  return (phase && sci.placement[phase]) || PLACEMENT[phase ?? "base"];
+  return BY_TYPE[s.type] ?? CATALOG.dauerlauf;
 }
