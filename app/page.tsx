@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { AppProvider, useApp, useSync } from "@/lib/store";
-import { ToastProvider } from "@/components/Toast";
+import { ToastProvider, useToast } from "@/components/Toast";
 import { Onboarding } from "@/components/Onboarding";
 import { AppHeader } from "@/components/AppHeader";
+import { useToday } from "@/lib/hooks";
+import { rebalance } from "@/lib/plan-adapt";
 import { HeuteTab } from "@/components/HeuteTab";
 import { DashboardTab } from "@/components/DashboardTab";
 import { PlanTab } from "@/components/PlanTab";
@@ -27,9 +29,24 @@ const TABS = [
 type TabKey = (typeof TABS)[number]["key"];
 
 function AppShell() {
-  const { ready, planConfig } = useApp();
+  const { ready, planConfig, plan, moveSessions } = useApp();
   const { firstSyncSettled } = useSync();
   const [tab, setTab] = useState<TabKey>("heute");
+  const today = useToday();
+  const toast = useToast();
+
+  // Adaptive Umplanung: überfällige Schlüssel-Einheiten in die Restwoche
+  // schieben. Idempotent — ein zweiter Durchlauf liefert keine Moves mehr.
+  useEffect(() => {
+    if (!ready || !planConfig || !today) return;
+    const moves = rebalance(plan, planConfig, today);
+    if (moves.length) {
+      moveSessions(moves);
+      toast(moves.length === 1
+        ? "1 Schlüssel-Einheit in deine Woche verschoben"
+        : `${moves.length} Einheiten in deine Woche verschoben`);
+    }
+  }, [ready, planConfig, today, plan, moveSessions, toast]);
 
   if (!ready) return null;
   // Noch keine Config: erst nach dem ersten abgeschlossenen Sync-Versuch

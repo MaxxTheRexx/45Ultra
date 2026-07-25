@@ -24,6 +24,7 @@ interface AppData {
   planConfig: PlanConfig | null;
   toggleDone: (id: string) => void;
   moveSession: (id: string, date: string, week: number) => void;
+  moveSessions: (moves: { id: string; date: string; week: number }[]) => void;
   setCheckin: (date: string, patch: Partial<Omit<Checkin, "date" | "updatedAt">>) => void;
   addActivities: (items: Activity[]) => void;
   saveSettings: (patch: Partial<Omit<Settings, "updatedAt">>) => void;
@@ -286,6 +287,17 @@ export function AppProvider({ userId, children }: { userId: string | null; child
     patchSessions(new Set([id]), (s) => ({ ...s, date, week, updatedAt: Date.now() }));
   }, [patchSessions]);
 
+  /** Mehrere Einheiten in einem Rutsch verschieben (adaptive Umplanung). */
+  const moveSessions = useCallback((moves: { id: string; date: string; week: number }[]) => {
+    if (!moves.length) return;
+    const now = Date.now();
+    const byId = new Map(moves.map((m) => [m.id, m]));
+    patchSessions(new Set(byId.keys()), (s) => {
+      const m = byId.get(s.id)!;
+      return { ...s, date: m.date, week: m.week, updatedAt: now };
+    });
+  }, [patchSessions]);
+
   const setCheckin = useCallback((date: string, patch: Partial<Omit<Checkin, "date" | "updatedAt">>) => {
     const cur = checkinsRef.current[date] ?? { date, updatedAt: 0 };
     const next: Checkin = { ...cur, ...patch, date, updatedAt: Date.now() };
@@ -386,9 +398,9 @@ export function AppProvider({ userId, children }: { userId: string | null; child
 
   const dataValue = useMemo<AppData>(() => ({
     ready, plan, checkins, activities, settings, planConfig,
-    toggleDone, moveSession, setCheckin, addActivities, saveSettings,
+    toggleDone, moveSession, moveSessions, setCheckin, addActivities, saveSettings,
     savePlanConfig, applyPlanConfig, importBackup,
-  }), [ready, plan, checkins, activities, settings, planConfig, toggleDone, moveSession,
+  }), [ready, plan, checkins, activities, settings, planConfig, toggleDone, moveSession, moveSessions,
     setCheckin, addActivities, saveSettings, savePlanConfig, applyPlanConfig, importBackup]);
 
   const syncValue = useMemo<SyncState>(
