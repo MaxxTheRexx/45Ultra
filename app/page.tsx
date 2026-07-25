@@ -68,7 +68,7 @@ function AppShell() {
         {tab === "daten" && <DatenTab />}
       </main>
       <div className="footer-note">
-        TRAILHEAD · offline-fähig · synchronisiert automatisch mit deinem Account
+        endurance24 · offline-fähig · synchronisiert automatisch mit deinem Account
       </div>
       <nav className="bottom-nav" role="tablist">
         {TABS.map((t) => (

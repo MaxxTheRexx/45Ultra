@@ -1,30 +1,30 @@
 import type { Metadata, Viewport } from "next";
-import { Anton, Barlow } from "next/font/google";
+import { Manrope, Inter } from "next/font/google";
 import { SerwistProvider } from "@serwist/turbopack/react";
 import "./globals.css";
 
-// "Startnummer"-Identität: Anton als Poster-Display, Barlow für alles andere.
-const barlow = Barlow({
+// endurance24-Identität: Manrope als Display/Zahlen, Inter für Fließtext.
+const inter = Inter({
   variable: "--font-b",
   weight: ["400", "500", "600", "700"],
   subsets: ["latin"],
 });
 
-const anton = Anton({
+const manrope = Manrope({
   variable: "--font-d",
-  weight: ["400"],
+  weight: ["600", "700", "800"],
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Trailhead · Trainingszentrale",
+  title: "endurance24",
   description:
-    "Dein individueller Trail- und Ultra-Trainingsplan: Kalender, Check-ins, Zielzeit-Prognose und Ernährung – auch offline.",
-  applicationName: "Trailhead",
+    "endurance24 — start playing mindgames w/ yourself. Dein individueller Trail- & Ultra-Trainingsplan mit Tagescoach, Wissenschaft und Ernährung – auch offline.",
+  applicationName: "endurance24",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Trailhead",
+    title: "endurance24",
   },
 };
 
@@ -32,7 +32,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#F4F4F0",
+  themeColor: "#F4F5F2",
 };
 
 export default function RootLayout({
@@ -43,7 +43,7 @@ export default function RootLayout({
   return (
     <html
       lang="de"
-      className={`${barlow.variable} ${anton.variable}`}
+      className={`${inter.variable} ${manrope.variable}`}
     >
       <body>
         <SerwistProvider swUrl="/serwist/sw.js">{children}</SerwistProvider>

@@ -1,27 +1,18 @@
-// Erzeugt die PWA-Icons aus einem SVG im App-Design (einmalig ausführen).
+// Erzeugt die PWA-Icons im endurance24-Look (einmalig ausführen: node scripts/gen-icons.mjs).
 import sharp from "sharp";
 import { mkdir } from "node:fs/promises";
 
-// Stilisiertes Streckenprofil wie im App-Header, orange Fortschritts-Markierung.
+// Helle Fläche, orange Bergsilhouette + "24" — passend zur endurance24-Marke.
+// Safe-Zone für maskable: Motiv innerhalb der mittleren ~80 %.
 const svg = `
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-  <rect width="512" height="512" fill="#0F1411"/>
-  <rect width="512" height="512" fill="url(#glow)"/>
-  <defs>
-    <radialGradient id="glow" cx="50%" cy="-10%" r="80%">
-      <stop offset="0%" stop-color="#1A241E"/>
-      <stop offset="60%" stop-color="#0F1411" stop-opacity="0"/>
-    </radialGradient>
-    <clipPath id="done"><rect x="0" y="0" width="300" height="512"/></clipPath>
-  </defs>
-  <g transform="translate(56,140)">
-    <path d="M0,260 L24,208 L60,224 L108,140 L160,80 L200,110 L240,64 L272,96 L300,86 L332,40 L368,90 L400,120 L400,260 Z"
-      fill="#1D2721" stroke="#3A4A40" stroke-width="6"/>
-    <path d="M0,260 L24,208 L60,224 L108,140 L160,80 L200,110 L240,64 L272,96 L300,86 L332,40 L368,90 L400,120 L400,260 Z"
-      fill="rgba(255,107,53,.30)" stroke="#FF6B35" stroke-width="8" clip-path="url(#done)"/>
-    <line x1="244" y1="-20" x2="244" y2="280" stroke="#FF6B35" stroke-width="8" stroke-dasharray="16 14"/>
-    <circle cx="244" cy="64" r="20" fill="#FF6B35"/>
+  <rect width="512" height="512" rx="112" fill="#F4F5F2"/>
+  <g>
+    <path d="M96 336 L200 176 L268 268 L316 208 L416 336 Z" fill="#FF5B2E"/>
+    <circle cx="316" cy="150" r="30" fill="#FF5B2E"/>
   </g>
+  <text x="256" y="440" font-family="Manrope, Arial, sans-serif" font-size="120" font-weight="800"
+    text-anchor="middle" fill="#171A16" letter-spacing="-4">24</text>
 </svg>`;
 
 const buf = Buffer.from(svg);
@@ -30,4 +21,5 @@ await sharp(buf).resize(512, 512).png().toFile("public/icon-512.png");
 await sharp(buf).resize(192, 192).png().toFile("public/icon-192.png");
 await sharp(buf).resize(180, 180).png().toFile("public/apple-icon.png");
 await sharp(buf).resize(512, 512).png().toFile("app/icon.png");
-console.log("Icons erzeugt: public/icon-512.png, icon-192.png, apple-icon.png, app/icon.png");
+await sharp(buf).resize(180, 180).png().toFile("app/apple-icon.png");
+console.log("endurance24-Icons erzeugt: public/icon-512/192, apple-icon, app/icon.png");

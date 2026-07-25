@@ -41,8 +41,8 @@ export function Onboarding() {
   return (
     <div className="auth-wrap">
       <div className="auth-card" style={{ maxWidth: 460 }}>
-        <h1>Willkommen 👋</h1>
-        <div className="auth-sub">SCHRITT {step + 1} VON {STEPS.length} · {STEPS[step].title.toUpperCase()}</div>
+        <h1>Willkommen bei<br /><em>endurance24</em></h1>
+        <div className="auth-sub">Schritt {step + 1} von {STEPS.length} · {STEPS[step].title}</div>
 
         {step < 3 && (
           <PlanConfigForm value={cfg} onChange={(patch) => setCfg((c) => ({ ...c, ...patch }))} sections={STEPS[step].sections} />

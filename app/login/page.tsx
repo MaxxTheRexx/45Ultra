@@ -50,8 +50,8 @@ export default function LoginPage() {
   return (
     <div className="auth-wrap">
       <div className="auth-card">
-        <h1>Trail<em>head</em></h1>
-        <div className="auth-sub">TRAININGSZENTRALE · ANMELDEN</div>
+        <h1>endurance<em>24</em></h1>
+        <div className="auth-sub">start playing mindgames w/ yourself</div>
         {error && <div className="auth-error">{error}</div>}
         <form onSubmit={submit}>
           {mode === "register" && (
@@ -91,7 +91,7 @@ export default function LoginPage() {
         </div>
       </div>
       <div className="footer-note" style={{ paddingTop: 20 }}>
-        Dein Trail-Trainingsplan · offline-fähig
+        endurance24 · dein Trail-Trainingsplan · offline-fähig
       </div>
     </div>
   );
