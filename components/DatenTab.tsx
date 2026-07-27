@@ -11,6 +11,7 @@ import { DEFAULT_SETTINGS, toPlanConfigInput } from "@/lib/types";
 import * as ldb from "@/lib/local-db";
 import { PlanConfigForm } from "./PlanConfigForm";
 import { StravaCard } from "./StravaCard";
+import { GarminCard } from "./GarminCard";
 import { useToast } from "./Toast";
 
 export function DatenTab() {
@@ -79,6 +80,9 @@ export function DatenTab() {
       )}
       <div className="grid g2" style={{ marginBottom: 14 }}>
         <StravaCard />
+        <GarminCard />
+      </div>
+      <div className="grid g2" style={{ marginBottom: 14 }}>
         <div className="card">
           <h3><span className="accent">{"//"}</span> Aktivitäten importieren (CSV)</h3>
           <div className="sub" style={{ marginBottom: 10 }}>

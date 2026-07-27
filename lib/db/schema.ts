@@ -134,6 +134,22 @@ export const stravaConnection = pgTable("strava_connection", {
   createdAt: bigint("created_at", { mode: "number" }).notNull(),
 });
 
+/* Garmin-Verbindung pro Nutzer (BYOK: eigene Garmin-API-App).
+   Geheimnisse (Client-Secret, Tokens) sind AES-256-GCM-verschlüsselt. */
+export const garminConnection = pgTable("garmin_connection", {
+  userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
+  clientId: text("client_id").notNull(),          // öffentlich
+  clientSecretEnc: text("client_secret_enc").notNull(),
+  accessTokenEnc: text("access_token_enc"),        // null bis OAuth abgeschlossen
+  refreshTokenEnc: text("refresh_token_enc"),
+  expiresAt: bigint("expires_at", { mode: "number" }).notNull().default(0), // Unix ms
+  syncedAfter: bigint("synced_after", { mode: "number" }).notNull().default(0), // Cursor, Unix ms
+  lastSyncAt: bigint("last_sync_at", { mode: "number" }).notNull().default(0),
+  status: text("status").notNull().default("pending"), // pending | ok | revoked | error
+  lastError: text("last_error"),
+  createdAt: bigint("created_at", { mode: "number" }).notNull(),
+});
+
 /* Individuelle Renn-/Plankonfiguration pro Nutzer (siehe PlanConfig in types.ts). */
 export const userPlanConfig = pgTable("user_plan_config", {
   userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
