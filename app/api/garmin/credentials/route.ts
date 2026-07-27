@@ -3,7 +3,6 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { garminConnection } from "@/lib/db/schema";
 import { encrypt } from "@/lib/crypto";
-import { GARMIN_API } from "@/lib/garmin";
 
 export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: req.headers });

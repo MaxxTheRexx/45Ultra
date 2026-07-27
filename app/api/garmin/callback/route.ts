@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { garminConnection } from "@/lib/db/schema";
 import { decrypt, encrypt } from "@/lib/crypto";
-import { syncUser, GARMIN_OAUTH, GarminAuthError } from "@/lib/garmin";
+import { syncUser, GARMIN_OAUTH } from "@/lib/garmin";
 
 export async function GET(req: Request) {
   const session = await auth.api.getSession({ headers: req.headers });

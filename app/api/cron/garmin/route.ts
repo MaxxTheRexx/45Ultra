@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { garminConnection, user } from "@/lib/db/schema";
+import { garminConnection } from "@/lib/db/schema";
 import { syncUser, GarminAuthError } from "@/lib/garmin";
 
 export async function GET(req: Request) {
